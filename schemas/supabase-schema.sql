@@ -220,7 +220,39 @@ CREATE TABLE IF NOT EXISTS amazon_products (
   ai_entry_recommendation TEXT,
   ai_is_consumable BOOLEAN,
   ai_sentiment TEXT,
-  ai_sentiment_score NUMERIC
+  ai_sentiment_score NUMERIC,
+
+  -- SERP Analysis (Page 1 Rankings)
+  serp_analysis JSONB,
+  serp_position INTEGER,
+  serp_on_page_one BOOLEAN,
+  serp_p1_competitors INTEGER,
+  serp_p1_avg_rating NUMERIC,
+  serp_p1_avg_reviews INTEGER,
+  serp_p1_avg_price NUMERIC,
+  serp_sponsored_count INTEGER,
+  serp_top_competitors JSONB,
+
+  -- Variation Analysis (Aggregated Child ASIN Metrics)
+  variation_analysis JSONB,
+  var_total_analyzed INTEGER,
+  var_sum_sales INTEGER,
+  var_max_sales INTEGER,
+  var_median_sales INTEGER,
+  var_sum_revenue NUMERIC,
+  var_max_revenue NUMERIC,
+  var_median_revenue NUMERIC,
+  var_min_price NUMERIC,
+  var_max_price NUMERIC,
+  var_median_price NUMERIC,
+  var_price_range NUMERIC,
+  var_avg_rating NUMERIC,
+  var_median_rating NUMERIC,
+  var_sum_reviews INTEGER,
+  var_median_reviews INTEGER,
+  var_avg_listing_age_days INTEGER,
+  var_median_listing_age_days INTEGER,
+  var_best_variation JSONB
 );
 
 -- Amazon Keywords Table (DataForSEO keyword data)

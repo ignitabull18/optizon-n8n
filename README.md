@@ -12,10 +12,30 @@ Amazon product research automation workflows for n8n.
 | **Amazon Review Scraper - Parallel** | Parallel batch review scraping | `/review-scraper` |
 | **Amazon Research - Pipeline** | Keepa + DataForSEO + Reviews | `/complete-research` |
 
+## Features
+
+### FBA Calculator
+- Dimensional weight calculation
+- Size tier determination (Small Standard, Large Standard, etc.)
+- 2024 FBA fee structures with peak season surcharges
+- Margin analysis and capacity utilization
+
+### Variation Analysis
+- Batch fetch all child ASINs in single Keepa request
+- Aggregate metrics: SUM, MEDIAN, MAX for sales/revenue/reviews
+- Best variation identification
+- Price range and listing age analysis
+
+### SERP Rankings (Optional)
+- DataForSEO Amazon SERP API integration
+- Page 1 competitor analysis
+- Sponsored listing count
+- Average ratings and reviews of top competitors
+
 ## API Integrations
 
-- **Keepa** - Amazon product data, pricing history, BSR tracking
-- **DataForSEO** - Amazon keyword search volume and competition
+- **Keepa** - Amazon product data, pricing history, BSR tracking, variation data
+- **DataForSEO** - Amazon keyword search volume, competition, and SERP rankings
 - **Apify** - Amazon review scraping (alternative)
 - **Bright Data** - Proxy and scraping services
 - **OpenAI** - AI market analysis and review sentiment
@@ -57,14 +77,29 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
     "saveToSupabase": true,
     "runAiAnalysis": true,
     "scrapeReviews": true,
+    "analyzeVariations": true,
+    "runSerpAnalysis": false,
     "reviewService": "apify",
     "keepaKey": "...",
     "apifyToken": "...",
     "openaiKey": "...",
     "sbUrl": "...",
-    "sbKey": "..."
+    "sbKey": "...",
+    "dataforseoAuth": "..."
   }'
 ```
+
+### Request Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `asin` | string | required | Amazon ASIN to research |
+| `saveToSupabase` | boolean | false | Save results to Supabase |
+| `runAiAnalysis` | boolean | false | Run AI market/review analysis |
+| `scrapeReviews` | boolean | false | Scrape product reviews |
+| `analyzeVariations` | boolean | false | Fetch and aggregate variation data |
+| `runSerpAnalysis` | boolean | false | Run SERP rankings analysis |
+| `reviewService` | string | "apify" | Review service: "apify" or "brightdata" |
 
 ### Calculate FBA Fees
 
@@ -79,13 +114,16 @@ curl -X POST https://your-n8n.com/webhook/fba-calculator \
 
 ## Cost Estimates
 
-| Service | Cost per Research |
-|---------|-------------------|
-| Keepa | ~$0.10 (5 tokens) |
-| Apify | ~$0.02 (10 reviews) |
-| OpenAI | ~$0.02 (GPT-5.2) |
-| Supabase | Free tier |
-| **Total** | **~$0.14** |
+| Service | Cost per Research | Notes |
+|---------|-------------------|-------|
+| Keepa (Product) | ~$0.10 | 5 tokens |
+| Keepa (Variations) | ~$0.20-0.40 | 10-20 tokens for batch |
+| DataForSEO (SERP) | ~$0.01 | Per ASIN |
+| Apify (Reviews) | ~$0.02 | 10 reviews |
+| OpenAI | ~$0.02 | GPT-4o |
+| Supabase | Free | Free tier |
+| **Total (Basic)** | **~$0.14** | Without variations |
+| **Total (Full)** | **~$0.35** | With variations + SERP |
 
 ## Database Schema
 
