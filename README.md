@@ -39,11 +39,13 @@ Amazon product research automation workflows for n8n.
 - Total follower aggregation across platforms
 - Primary platform identification
 
-### Amazon Q&A Analysis (NEW)
+### Amazon Q&A Analysis (NEW) ⚠️
 - Customer questions and answers scraping
 - Answered vs unanswered question counts
 - Common question themes extraction
 - Top questions with vote counts
+
+> **Note:** Q&A scraping requires a paid API subscription (Apify paid actors or Oxylabs). The workflow gracefully handles missing API access and returns structured error responses.
 
 ### Competitor Ad Analysis (NEW)
 - Facebook Ad Library integration
