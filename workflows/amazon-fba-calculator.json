@@ -1,0 +1,8 @@
+{
+  "id": "AVQQQBwDZephHgTs",
+  "name": "Amazon Research - FBA Calculator",
+  "description": "Calculate FBA fees and margins using Keepa product data",
+  "active": false,
+  "webhookPath": "fba-calculator",
+  "nodeCount": 4
+}

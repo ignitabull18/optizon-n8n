@@ -1,0 +1,8 @@
+{
+  "id": "KSoZGFFX7LuIaOHA",
+  "name": "Amazon Review Scraper - With Proxy Rotation",
+  "description": "Scrape Amazon reviews with proxy rotation support",
+  "active": false,
+  "webhookPath": "proxy-review-scrape",
+  "nodeCount": 6
+}

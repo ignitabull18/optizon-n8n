@@ -1,0 +1,25 @@
+# Environment
+.env
+.env.local
+*.local
+
+# API Keys
+**/credentials.json
+**/secrets.json
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,3308 @@
+{
+  "updatedAt": "2026-01-15T09:15:20.417Z",
+  "createdAt": "2026-01-14T22:36:10.555Z",
+  "id": "JHBsr7jS9CMs45WU",
+  "name": "Amazon Research - Complete + Supabase",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Research Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        500
+      ],
+      "webhookId": "research-supabase",
+      "parameters": {
+        "path": "research-supabase",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asin",
+              "name": "asin",
+              "value": "={{ $json.body.asin || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "searchKeyword",
+              "name": "searchKeyword",
+              "value": "={{ $json.body.keyword || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "maxProducts",
+              "name": "maxProducts",
+              "value": "={{ $json.body.maxProducts || 5 }}",
+              "type": "number"
+            },
+            {
+              "id": "domain",
+              "name": "domain",
+              "value": "={{ $json.body.domain || 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "keepaKey",
+              "name": "keepaKey",
+              "value": "={{ $json.body.keepaKey || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "dataforseoAuth",
+              "name": "dataforseoAuth",
+              "value": "={{ $json.body.dataforseoAuth || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "fetchKeywords",
+              "name": "fetchKeywords",
+              "value": "={{ $json.body.fetchKeywords === true }}",
+              "type": "boolean"
+            },
+            {
+              "id": "scrapeReviews",
+              "name": "scrapeReviews",
+              "value": "={{ $json.body.scrapeReviews === true }}",
+              "type": "boolean"
+            },
+            {
+              "id": "maxReviews",
+              "name": "maxReviews",
+              "value": "={{ $json.body.maxReviews || 100 }}",
+              "type": "number"
+            },
+            {
+              "id": "brightDataKey",
+              "name": "brightDataKey",
+              "value": "={{ $json.body.brightDataKey || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "apifyToken",
+              "name": "apifyToken",
+              "value": "={{ $json.body.apifyToken || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "sbUrl",
+              "name": "sbUrl",
+              "value": "={{ $json.body.sbUrl || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "sbKey",
+              "name": "sbKey",
+              "value": "={{ $json.body.sbKey || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "openaiKey",
+              "name": "openaiKey",
+              "value": "={{ $json.body.openaiKey || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "runAiAnalysis",
+              "name": "runAiAnalysis",
+              "value": "={{ $json.body.runAiAnalysis === true }}",
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "keepa-api",
+      "name": "1. Keepa Product API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        540,
+        500
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.keepa.com/product",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $json.keepaKey }}"
+            },
+            {
+              "name": "domain",
+              "value": "={{ $json.domain }}"
+            },
+            {
+              "name": "asin",
+              "value": "={{ $json.asin }}"
+            },
+            {
+              "name": "stats",
+              "value": "90"
+            },
+            {
+              "name": "history",
+              "value": "1"
+            },
+            {
+              "name": "days",
+              "value": "180"
+            },
+            {
+              "name": "rating",
+              "value": "1"
+            },
+            {
+              "name": "offers",
+              "value": "20"
+            },
+            {
+              "name": "buybox",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "transform-product",
+      "name": "Transform Product",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        500
+      ],
+      "parameters": {
+        "jsCode": "const config = $('Set Config').first().json;\nconst data = $input.first().json;\n\nif (!data.products || !data.products[0]) {\n  return [{ json: { error: 'No product found', config } }];\n}\n\nconst p = data.products[0];\n\n// Helper functions - return NUMBERS not strings\nconst getPrice = (csv, i) => {\n  if (!csv?.[i]?.length || csv[i].length < 2) return null;\n  const val = csv[i][csv[i].length-1];\n  return val > 0 ? val / 100 : null;\n};\n\nconst getPriceHistory = (csv, i, days = 30) => {\n  if (!csv?.[i]?.length) return null;\n  const now = Date.now();\n  const cutoff = now - (days * 24 * 60 * 60 * 1000);\n  const history = [];\n  for (let j = 0; j < csv[i].length; j += 2) {\n    const timestamp = (csv[i][j] + 21564000) * 60000;\n    if (timestamp >= cutoff && csv[i][j+1] > 0) {\n      history.push({ date: new Date(timestamp).toISOString().split('T')[0], value: csv[i][j+1] / 100 });\n    }\n  }\n  return history.length > 0 ? history : null;\n};\n\nconst getBSR = (sr) => {\n  if (!sr) return null;\n  const categories = Object.keys(sr);\n  if (!categories.length) return null;\n  const mainCat = categories[0];\n  const ranks = sr[mainCat];\n  return ranks?.length ? ranks[ranks.length - 1] : null;\n};\n\nconst getAllBSR = (sr) => {\n  if (!sr) return {};\n  const result = {};\n  for (const [catId, ranks] of Object.entries(sr)) {\n    if (ranks?.length) {\n      result[catId] = {\n        current: ranks[ranks.length - 1],\n        history: ranks.slice(-10)\n      };\n    }\n  }\n  return result;\n};\n\n// Calculate BSR change (improvement is negative, decline is positive)\nconst calcBSRChange = (sr, days = 30) => {\n  if (!sr) return null;\n  const mainCat = Object.keys(sr)[0];\n  if (!mainCat || !sr[mainCat]?.length) return null;\n  const ranks = sr[mainCat];\n  const current = ranks[ranks.length - 1];\n  const older = ranks.length > 2 ? ranks[Math.max(0, ranks.length - (days * 2))] : ranks[0];\n  if (!older || !current) return null;\n  return current - older; // Negative means improvement\n};\n\nconst calcBSRGrowth = (sr, days = 30) => {\n  if (!sr) return null;\n  const mainCat = Object.keys(sr)[0];\n  if (!mainCat || !sr[mainCat]?.length) return null;\n  const ranks = sr[mainCat];\n  const current = ranks[ranks.length - 1];\n  const older = ranks.length > 2 ? ranks[Math.max(0, ranks.length - (days * 2))] : ranks[0];\n  if (!older || !current) return null;\n  return ((older - current) / older * 100); // Positive means improvement\n};\n\n// Calculate monthly sales growth from history\nconst calcSalesGrowth = (history) => {\n  if (!history || history.length < 2) return null;\n  const current = history[history.length - 1];\n  const previous = history[Math.max(0, history.length - 2)];\n  if (!previous || previous === 0) return null;\n  return ((current - previous) / previous * 100);\n};\n\n// Calculate new ratings from review count history\nconst calcNewRatings = (csv, days = 30) => {\n  if (!csv?.[17]?.length || csv[17].length < 4) return null;\n  const current = csv[17][csv[17].length - 1];\n  const older = csv[17][Math.max(0, csv[17].length - (days * 2) - 1)];\n  if (older === undefined) return null;\n  return current - older;\n};\n\n// Unit conversion helpers - return NUMBERS\nconst mmToInches = (mm) => mm && mm > 0 ? mm / 25.4 : null;\nconst mmToCm = (mm) => mm && mm > 0 ? mm / 10 : null;\nconst gramsToOz = (g) => g && g > 0 ? g / 28.3495 : null;\nconst gramsToLbs = (g) => g && g > 0 ? g / 453.592 : null;\nconst gramsToKg = (g) => g && g > 0 ? g / 1000 : null;\nconst keepaTimeToDate = (kt) => kt ? new Date((kt + 21564000) * 60000).toISOString().split('T')[0] : null;\n\n// Get sub-category info\nconst getSubCategories = (sr, rootCat) => {\n  if (!sr) return [];\n  const subCats = [];\n  for (const [catId, ranks] of Object.entries(sr)) {\n    if (catId !== String(rootCat) && ranks?.length) {\n      subCats.push({\n        categoryId: parseInt(catId),\n        currentBSR: ranks[ranks.length - 1],\n        bsrHistory: ranks.slice(-10)\n      });\n    }\n  }\n  return subCats;\n};\n\n// Determine primary fulfillment type from offers\nconst getFulfillmentType = (offers) => {\n  if (!offers || !offers.length) return null;\n  const fbaCount = offers.filter(o => o.isFBA).length;\n  const fbmCount = offers.length - fbaCount;\n  if (fbaCount > fbmCount) return 'FBA';\n  if (fbmCount > fbaCount) return 'FBM';\n  return 'Mixed';\n};\n\n// FBA Size Tier Weight Limits (oz)\nconst getSizeTierLimits = (tier) => {\n  const limits = {\n    'Small Standard': { maxWeight: 12, maxLength: 15, maxWidth: 12, maxHeight: 0.75 },\n    'Large Standard': { maxWeight: 320, maxLength: 18, maxWidth: 14, maxHeight: 8 },\n    'Small Oversize': { maxWeight: 1120, maxLengthPlusGirth: 130, maxLength: 60 },\n    'Medium Oversize': { maxWeight: 2400, maxLengthPlusGirth: 130, maxLength: 60 },\n    'Large Oversize': { maxWeight: 4480, maxLengthPlusGirth: 165, maxLength: 108 },\n    'Special Oversize': { maxWeight: null, maxLengthPlusGirth: null, maxLength: null }\n  };\n  return limits[tier] || null;\n};\n\n// Build comprehensive product object with proper data types\nconst product = {\n  // === PRODUCT IDENTIFICATION ===\n  asin: p.asin,\n  parentAsin: p.parentAsin || null,\n  variationCSV: p.variationCSV || null,\n  upc: p.upcList?.[0] || null,\n  ean: p.eanList?.[0] || null,\n  mpn: p.mpn || null,\n  partNumber: p.partNumber || null,\n  model: p.model || null,\n  binding: p.binding || null,\n  productGroup: p.productGroup || null,\n  productType: p.type || null,\n  color: p.color || null,\n  size: p.size || null,\n  format: p.format || null,\n  edition: p.edition || null,\n  platform: p.platform || null,\n  \n  // === URLS & IMAGES ===\n  url: `https://amazon.com/dp/${p.asin}`,\n  urlSlug: p.urlSlug || null,\n  imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,\n  allImages: p.imagesCSV ? p.imagesCSV.split(',').map(img => `https://images-na.ssl-images-amazon.com/images/I/${img}`) : [],\n  imageCount: p.imagesCSV ? p.imagesCSV.split(',').length : 0,\n  \n  // === PRODUCT DETAILS ===\n  title: p.title || null,\n  description: p.description || null,\n  features: p.features || [],\n  featureCount: p.features?.length || 0,\n  \n  // === BRAND & MANUFACTURER ===\n  brand: p.brand || null,\n  brandStoreName: p.brandStoreName || null,\n  brandStoreUrl: p.brandStoreUrl ? `https://amazon.com${p.brandStoreUrl}` : null,\n  manufacturer: p.manufacturer || null,\n  label: p.label || null,\n  publisher: p.publisher || null,\n  studio: p.studio || null,\n  author: p.author || null,\n  contributors: p.contributors || null,\n  \n  // === CATEGORY & CLASSIFICATION ===\n  rootCategory: p.rootCategory || null,\n  categoryTree: p.categoryTree || null,\n  categories: p.categories || null,\n  subCategories: getSubCategories(p.salesRanks, p.rootCategory),\n  salesRankReference: p.salesRankReference || null,\n  \n  // === BSR (BEST SELLER RANK) ===\n  currentBSR: getBSR(p.salesRanks),\n  allCategoryBSR: getAllBSR(p.salesRanks),\n  bsrChange30d: calcBSRChange(p.salesRanks, 30),\n  bsrChange90d: calcBSRChange(p.salesRanks, 90),\n  bsrGrowth30d: calcBSRGrowth(p.salesRanks, 30),\n  bsrGrowth90d: calcBSRGrowth(p.salesRanks, 90),\n  \n  // === PRICING (Current) - Numbers ===\n  amazonPrice: getPrice(p.csv, 0),\n  newPrice: getPrice(p.csv, 1),\n  usedPrice: getPrice(p.csv, 2),\n  listPrice: getPrice(p.csv, 4),\n  collectiblePrice: getPrice(p.csv, 5),\n  refurbishedPrice: getPrice(p.csv, 6),\n  newFBMShipping: getPrice(p.csv, 7),\n  fbaPrice: getPrice(p.csv, 10),\n  buyBoxPrice: getPrice(p.csv, 18),\n  warehousePrice: getPrice(p.csv, 9),\n  ebayNewPrice: getPrice(p.csv, 12),\n  ebayUsedPrice: getPrice(p.csv, 13),\n  \n  // === PRICING (Historical) ===\n  priceHistory30d: getPriceHistory(p.csv, 0, 30),\n  priceHistory90d: getPriceHistory(p.csv, 0, 90),\n  \n  // === COUPON & PROMOTIONS ===\n  coupon: p.coupon || null,\n  couponHistory: p.couponHistory || null,\n  promotions: p.promotions || null,\n  \n  // === SALES PERFORMANCE ===\n  monthlySold: p.monthlySold || null,\n  monthlySoldHistory: p.monthlySoldHistory || null,\n  monthlySalesGrowth: calcSalesGrowth(p.monthlySoldHistory),\n  estimatedRevenue: p.monthlySold && getPrice(p.csv, 0) ? p.monthlySold * getPrice(p.csv, 0) : null,\n  \n  // === CUSTOMER FEEDBACK ===\n  rating: p.csv?.[16]?.length ? p.csv[16][p.csv[16].length-1] / 10 : null,\n  reviewCount: p.csv?.[17]?.length ? p.csv[17][p.csv[17].length-1] : null,\n  newlyRatings30d: calcNewRatings(p.csv, 30),\n  newlyRatings90d: calcNewRatings(p.csv, 90),\n  ratingHistory: p.csv?.[16]?.length ? p.csv[16].slice(-20).filter((_, i) => i % 2 === 1).map(v => v/10) : [],\n  reviewCountHistory: p.csv?.[17]?.length ? p.csv[17].slice(-20).filter((_, i) => i % 2 === 1) : [],\n  \n  // === OFFER COUNTS ===\n  amazonOfferCount: p.csv?.[20]?.length ? p.csv[20][p.csv[20].length-1] : null,\n  newOfferCount: p.csv?.[11]?.length ? p.csv[11][p.csv[11].length-1] : null,\n  usedOfferCount: p.csv?.[14]?.length ? p.csv[14][p.csv[14].length-1] : null,\n  collectibleOfferCount: p.csv?.[15]?.length ? p.csv[15][p.csv[15].length-1] : null,\n  refurbishedOfferCount: p.csv?.[19]?.length ? p.csv[19][p.csv[19].length-1] : null,\n  \n  // === VARIATIONS ===\n  variationCount: p.variations?.length || 0,\n  variations: (p.variations || []).map(v => ({\n    asin: v.asin,\n    attributes: v.attributes,\n    dimension: v.dimension\n  })),\n  variationAttributes: p.variationAttributes || null,\n  \n  // === PACKAGE DIMENSIONS (Raw in mm/g) ===\n  packageWeightGrams: p.packageWeight > 0 ? p.packageWeight : null,\n  packageHeightMM: p.packageHeight > 0 ? p.packageHeight : null,\n  packageLengthMM: p.packageLength > 0 ? p.packageLength : null,\n  packageWidthMM: p.packageWidth > 0 ? p.packageWidth : null,\n  \n  // === PACKAGE DIMENSIONS (Converted) - Numbers ===\n  packageWeightKg: gramsToKg(p.packageWeight),\n  packageWeightLbs: gramsToLbs(p.packageWeight),\n  packageWeightOz: gramsToOz(p.packageWeight),\n  packageHeightCm: mmToCm(p.packageHeight),\n  packageHeightIn: mmToInches(p.packageHeight),\n  packageLengthCm: mmToCm(p.packageLength),\n  packageLengthIn: mmToInches(p.packageLength),\n  packageWidthCm: mmToCm(p.packageWidth),\n  packageWidthIn: mmToInches(p.packageWidth),\n  \n  // === ITEM DIMENSIONS (Raw in mm/g) ===\n  itemWeightGrams: p.itemWeight > 0 ? p.itemWeight : null,\n  itemHeightMM: p.itemHeight > 0 ? p.itemHeight : null,\n  itemLengthMM: p.itemLength > 0 ? p.itemLength : null,\n  itemWidthMM: p.itemWidth > 0 ? p.itemWidth : null,\n  \n  // === ITEM DIMENSIONS (Converted) - Numbers ===\n  itemWeightKg: gramsToKg(p.itemWeight),\n  itemWeightLbs: gramsToLbs(p.itemWeight),\n  itemWeightOz: gramsToOz(p.itemWeight),\n  itemHeightCm: mmToCm(p.itemHeight),\n  itemHeightIn: mmToInches(p.itemHeight),\n  itemLengthCm: mmToCm(p.itemLength),\n  itemLengthIn: mmToInches(p.itemLength),\n  itemWidthCm: mmToCm(p.itemWidth),\n  itemWidthIn: mmToInches(p.itemWidth),\n  \n  // === DIMENSIONAL WEIGHT CALCULATIONS ===\n  dimWeightOz: null, // Calculated below\n  dimWeightLbs: null,\n  \n  // === PACKAGE QUANTITIES ===\n  numberOfItems: p.numberOfItems > 0 ? p.numberOfItems : null,\n  packageQuantity: p.packageQuantity > 0 ? p.packageQuantity : null,\n  \n  // === FBA FEES ===\n  fbaFees: p.fbaFees ? {\n    pickAndPackFee: p.fbaFees.pickAndPackFee ? p.fbaFees.pickAndPackFee / 100 : null,\n    perItemFee: p.fbaFees.perItemFee ? p.fbaFees.perItemFee / 100 : null,\n    storageFee: p.fbaFees.storageFee ? p.fbaFees.storageFee / 100 : null,\n    lastUpdate: keepaTimeToDate(p.fbaFees.lastUpdate)\n  } : null,\n  referralFeePercentage: p.referralFeePercentage || null,\n  variableClosingFee: p.variableClosingFee ? p.variableClosingFee / 100 : null,\n  \n  // === PRODUCT STATUS & DATES ===\n  listedSince: keepaTimeToDate(p.listedSince),\n  trackingSince: keepaTimeToDate(p.trackingSince),\n  lastUpdate: keepaTimeToDate(p.lastUpdate),\n  lastPriceChange: keepaTimeToDate(p.lastPriceChange),\n  lastRatingUpdate: keepaTimeToDate(p.lastRatingUpdate),\n  \n  // === AVAILABILITY ===\n  availabilityAmazon: p.availabilityAmazon,\n  isAvailable: p.availabilityAmazon === 0 || (p.csv?.[0]?.length > 0 && p.csv[0][p.csv[0].length-1] > 0),\n  \n  // === FULFILLMENT ===\n  fulfillmentType: getFulfillmentType(p.offers),\n  fbaOfferCount: p.offers ? p.offers.filter(o => o.isFBA).length : 0,\n  fbmOfferCount: p.offers ? p.offers.filter(o => !o.isFBA).length : 0,\n  \n  // === PRODUCT FLAGS ===\n  isAdultProduct: p.isAdultProduct || false,\n  isEligibleForTradeIn: p.isEligibleForTradeIn || false,\n  isEligibleForSuperSaverShipping: p.isEligibleForSuperSaverShipping || false,\n  isSNS: p.isSNS || false,\n  isRedirectASIN: p.isRedirectASIN || false,\n  isPrimeExclusive: p.isPrimeExclusive || false,\n  launchpad: p.launchpad || false,\n  hazardousMaterials: p.hazardousMaterialType || null,\n  \n  // === CONTENT FEATURES ===\n  hasAPlus: !!p.aPlus,\n  aPlusModules: p.aPlus || null,\n  hasVideos: p.videos?.length > 0,\n  videos: p.videos || [],\n  videoCount: p.videos?.length || 0,\n  frequentlyBoughtTogether: p.frequentlyBoughtTogether || null,\n  \n  // === BUYBOX & SELLERS ===\n  buyBoxSellerId: p.stats?.buyBoxSellerId || null,\n  buyBoxIsFBA: p.stats?.buyBoxIsFBA || null,\n  buyBoxIsAmazon: p.stats?.buyBoxIsAmazon || null,\n  buyBoxPrice90dAvg: p.stats?.buyBoxPrice ? p.stats.buyBoxPrice / 100 : null,\n  \n  // === OFFERS (if requested) ===\n  offers: (p.offers || []).slice(0, 10).map(o => ({\n    sellerId: o.sellerId,\n    condition: o.condition,\n    isPrime: o.isPrime,\n    isFBA: o.isFBA,\n    isShippable: o.isShippable,\n    rating: o.rating,\n    ratingCount: o.ratingCount,\n    shipsFrom: o.shipsFromCountry\n  })),\n  offerCount: p.offers?.length || 0,\n  \n  // === INGREDIENTS (for supplements/food) ===\n  ingredients: p.ingredients || null,\n  activeIngredients: p.activeIngredients || null,\n  specialIngredients: p.specialIngredients || null,\n  nutritionFacts: p.nutritionFacts || null,\n  warnings: p.warnings || null,\n  directions: p.directions || null,\n  \n  // === STATS (90-day aggregates) ===\n  stats: p.stats ? {\n    current: p.stats.current,\n    avg30: p.stats.avg30,\n    avg90: p.stats.avg90,\n    outOfStockPercentage30: p.stats.outOfStockPercentage30,\n    outOfStockPercentage90: p.stats.outOfStockPercentage90,\n    totalOfferCount: p.stats.totalOfferCount,\n    lightningDealInfo: p.stats.lightningDealInfo,\n    buyBoxStats: p.stats.buyBoxStats\n  } : null,\n  \n  // === RAW DATA ===\n  _raw: {\n    domainId: p.domainId,\n    productType: p.productType,\n    hasReviews: p.hasReviews,\n    tokensConsumed: data.tokensConsumed,\n    timestamp: data.timestamp\n  }\n};\n\n// Calculate dimensional weight\nif (product.packageHeightIn && product.packageLengthIn && product.packageWidthIn) {\n  const dimWeight = (product.packageHeightIn * product.packageLengthIn * product.packageWidthIn) / 139;\n  product.dimWeightOz = dimWeight;\n  product.dimWeightLbs = dimWeight / 16;\n}\n\n// Calculate derived metrics\nproduct.daysListed = product.listedSince ? Math.floor((Date.now() - new Date(product.listedSince).getTime()) / (1000 * 60 * 60 * 24)) : null;\nproduct.reviewVelocity = product.reviewCount && product.daysListed > 0 ? product.reviewCount / product.daysListed : null;\nproduct.revenuePerReview = product.estimatedRevenue && product.reviewCount > 0 ? product.estimatedRevenue / product.reviewCount : null;\n\n// Determine size tier\nif (product.packageWeightOz && product.packageLengthIn && product.packageWidthIn && product.packageHeightIn) {\n  const weight = product.packageWeightOz;\n  const length = product.packageLengthIn;\n  const width = product.packageWidthIn;\n  const height = product.packageHeightIn;\n  const girth = 2 * (width + height);\n  const lengthPlusGirth = length + girth;\n  \n  if (weight <= 12 && length <= 15 && width <= 12 && height <= 0.75) {\n    product.sizeTier = 'Small Standard';\n  } else if (weight <= 320 && length <= 18 && width <= 14 && height <= 8) {\n    product.sizeTier = 'Large Standard';\n  } else if (weight <= 1120 && lengthPlusGirth <= 130 && length <= 60) {\n    product.sizeTier = 'Small Oversize';\n  } else if (weight <= 2400 && lengthPlusGirth <= 130 && length <= 60) {\n    product.sizeTier = 'Medium Oversize';\n  } else if (weight <= 4480 && lengthPlusGirth <= 165 && length <= 108) {\n    product.sizeTier = 'Large Oversize';\n  } else {\n    product.sizeTier = 'Special Oversize';\n  }\n  \n  // Get size tier limits\n  product.sizeTierLimits = getSizeTierLimits(product.sizeTier);\n  \n  // Calculate remaining weight in size tier\n  if (product.sizeTierLimits?.maxWeight) {\n    product.remainingWeightOz = product.sizeTierLimits.maxWeight - weight;\n    product.remainingWeightG = product.remainingWeightOz * 28.3495;\n  }\n} else {\n  product.sizeTier = null;\n  product.sizeTierLimits = null;\n}\n\nreturn [{ json: { product, config } }];"
+      }
+    },
+    {
+      "id": "check-kw",
+      "name": "Has Keywords?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        980,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "kw",
+              "leftValue": "={{ $json.config.keywords }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "dataforseo",
+      "name": "2. DataForSEO Keywords",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.dataforseo.com/v3/keywords_data/amazon/search_volume/live",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Basic {{ $json.config.dataforSeoAuth }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "=[{\"keywords\": {{ JSON.stringify($json.config.keywords.split(',').map(k => k.trim())) }}, \"location_code\": 2840, \"language_code\": \"en\"}]",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "transform-kw",
+      "name": "Transform Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const prev = $('Transform Product').first().json;\nconst data = $input.first().json;\nconst kws = data.tasks?.[0]?.result?.map(r => ({ keyword: r.keyword, searchVolume: r.search_volume, competition: r.competition, cpc: r.cpc })) || [];\nreturn [{ json: { ...prev, keywords: kws } }];"
+      }
+    },
+    {
+      "id": "skip-kw",
+      "name": "No Keywords",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        600
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "keywords",
+              "name": "keywords",
+              "value": "=[]",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true
+      }
+    },
+    {
+      "id": "merge-kw",
+      "name": "Merge KW",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1640,
+        500
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "check-reviews",
+      "name": "Scrape Reviews?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1860,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "scrapeReviews",
+              "leftValue": "={{ $json.config.scrapeReviews }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "hasApiKey",
+              "leftValue": "={{ $json.config.brightDataKey || $json.config.apifyToken }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "skip-reviews",
+      "name": "No Reviews",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        600
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "reviews",
+              "name": "reviews",
+              "value": "={{ { source: 'none', count: 0, items: [] } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true
+      }
+    },
+    {
+      "id": "merge-rev",
+      "name": "Merge Reviews",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2960,
+        500
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "check-supabase",
+      "name": "Save to Supabase?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3180,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "sb",
+              "leftValue": "={{ $json.config.sbUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "prep-supabase",
+      "name": "Prepare Supabase Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3400,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst c = d.config;\nconst p = d.product || {};\n\n// Parse keywords and reviews if they're strings\nlet kws = d.keywords;\nif (typeof kws === 'string') {\n  try { kws = JSON.parse(kws); } catch(e) { kws = []; }\n}\nkws = kws || [];\n\nlet revs = d.reviews;\nif (typeof revs === 'string') {\n  try { revs = JSON.parse(revs); } catch(e) { revs = {}; }\n}\n// FIXED: Use revs.items instead of revs.data\nconst reviewData = revs?.items || [];\n\n// Get AI analysis results\nconst marketAnalysis = d.marketAnalysis || null;\nconst reviewAnalysis = d.reviewAnalysis || null;\n\nconst rid = `${p.asin}_${Date.now()}`;\n\n// ============================================\n// COMPREHENSIVE PRODUCT RECORD - ALL FIELDS\n// ============================================\nconst productRec = {\n  research_id: rid,\n  created_at: new Date().toISOString(),\n  asin: p.asin,\n  parent_asin: p.parentAsin,\n  upc: p.upc,\n  ean: p.ean,\n  mpn: p.mpn,\n  model: p.model,\n  part_number: p.partNumber,\n  binding: p.binding,\n  product_group: p.productGroup,\n  product_type: p.productType,\n  color: p.color,\n  size: p.size,\n  format: p.format,\n  edition: p.edition,\n  platform: p.platform,\n  url: p.url,\n  url_slug: p.urlSlug,\n  image_url: p.imageUrl,\n  all_images: p.allImages,\n  image_count: p.imageCount,\n  title: p.title,\n  description: p.description,\n  features: p.features,\n  feature_count: p.featureCount,\n  brand: p.brand,\n  brand_store_name: p.brandStoreName,\n  brand_store_url: p.brandStoreUrl,\n  manufacturer: p.manufacturer,\n  label: p.label,\n  publisher: p.publisher,\n  studio: p.studio,\n  author: p.author,\n  contributors: p.contributors,\n  root_category: p.rootCategory,\n  category_tree: p.categoryTree,\n  categories: p.categories,\n  sub_categories: p.subCategories,\n  sales_rank_reference: p.salesRankReference,\n  current_bsr: p.currentBSR,\n  all_category_bsr: p.allCategoryBSR,\n  bsr_change_30d: p.bsrChange30d,\n  bsr_change_90d: p.bsrChange90d,\n  bsr_growth_30d: p.bsrGrowth30d,\n  bsr_growth_90d: p.bsrGrowth90d,\n  amazon_price: p.amazonPrice,\n  new_price: p.newPrice,\n  used_price: p.usedPrice,\n  list_price: p.listPrice,\n  collectible_price: p.collectiblePrice,\n  refurbished_price: p.refurbishedPrice,\n  new_fbm_shipping: p.newFBMShipping,\n  fba_price: p.fbaPrice,\n  buy_box_price: p.buyBoxPrice,\n  warehouse_price: p.warehousePrice,\n  ebay_new_price: p.ebayNewPrice,\n  ebay_used_price: p.ebayUsedPrice,\n  price_history_30d: p.priceHistory30d,\n  price_history_90d: p.priceHistory90d,\n  coupon: p.coupon,\n  coupon_history: p.couponHistory,\n  promotions: p.promotions,\n  monthly_sold: p.monthlySold,\n  monthly_sold_history: p.monthlySoldHistory,\n  monthly_sales_growth: p.monthlySalesGrowth,\n  estimated_revenue: p.estimatedRevenue,\n  rating: p.rating,\n  review_count: p.reviewCount,\n  newly_ratings_30d: p.newlyRatings30d,\n  newly_ratings_90d: p.newlyRatings90d,\n  rating_history: p.ratingHistory,\n  review_count_history: p.reviewCountHistory,\n  amazon_offer_count: p.amazonOfferCount,\n  new_offer_count: p.newOfferCount,\n  used_offer_count: p.usedOfferCount,\n  collectible_offer_count: p.collectibleOfferCount,\n  refurbished_offer_count: p.refurbishedOfferCount,\n  fba_offer_count: p.fbaOfferCount,\n  fbm_offer_count: p.fbmOfferCount,\n  variation_count: p.variationCount,\n  variations: p.variations,\n  variation_attributes: p.variationAttributes,\n  package_weight_grams: p.packageWeightGrams,\n  package_height_mm: p.packageHeightMM,\n  package_length_mm: p.packageLengthMM,\n  package_width_mm: p.packageWidthMM,\n  package_weight_kg: p.packageWeightKg,\n  package_weight_lbs: p.packageWeightLbs,\n  package_weight_oz: p.packageWeightOz,\n  package_height_cm: p.packageHeightCm,\n  package_height_in: p.packageHeightIn,\n  package_length_cm: p.packageLengthCm,\n  package_length_in: p.packageLengthIn,\n  package_width_cm: p.packageWidthCm,\n  package_width_in: p.packageWidthIn,\n  item_weight_grams: p.itemWeightGrams,\n  item_height_mm: p.itemHeightMM,\n  item_length_mm: p.itemLengthMM,\n  item_width_mm: p.itemWidthMM,\n  item_weight_kg: p.itemWeightKg,\n  item_weight_lbs: p.itemWeightLbs,\n  item_weight_oz: p.itemWeightOz,\n  item_height_cm: p.itemHeightCm,\n  item_height_in: p.itemHeightIn,\n  item_length_cm: p.itemLengthCm,\n  item_length_in: p.itemLengthIn,\n  item_width_cm: p.itemWidthCm,\n  item_width_in: p.itemWidthIn,\n  dim_weight_oz: p.dimWeightOz,\n  dim_weight_lbs: p.dimWeightLbs,\n  number_of_items: p.numberOfItems,\n  package_quantity: p.packageQuantity,\n  fba_fees: p.fbaFees,\n  referral_fee_percentage: p.referralFeePercentage,\n  variable_closing_fee: p.variableClosingFee,\n  size_tier: p.sizeTier,\n  size_tier_limits: p.sizeTierLimits,\n  remaining_weight_oz: p.remainingWeightOz,\n  remaining_weight_g: p.remainingWeightG,\n  listed_since: p.listedSince,\n  tracking_since: p.trackingSince,\n  last_update: p.lastUpdate,\n  last_price_change: p.lastPriceChange,\n  last_rating_update: p.lastRatingUpdate,\n  availability_amazon: p.availabilityAmazon,\n  is_available: p.isAvailable,\n  fulfillment_type: p.fulfillmentType,\n  is_adult_product: p.isAdultProduct,\n  is_eligible_for_trade_in: p.isEligibleForTradeIn,\n  is_eligible_for_super_saver: p.isEligibleForSuperSaverShipping,\n  is_sns: p.isSNS,\n  is_redirect_asin: p.isRedirectASIN,\n  is_prime_exclusive: p.isPrimeExclusive,\n  launchpad: p.launchpad,\n  hazardous_materials: p.hazardousMaterials,\n  has_aplus: p.hasAPlus,\n  aplus_modules: p.aPlusModules,\n  has_videos: p.hasVideos,\n  videos: p.videos,\n  video_count: p.videoCount,\n  frequently_bought_together: p.frequentlyBoughtTogether,\n  buy_box_seller_id: p.buyBoxSellerId,\n  buy_box_is_fba: p.buyBoxIsFBA,\n  buy_box_is_amazon: p.buyBoxIsAmazon,\n  buy_box_price_90d_avg: p.buyBoxPrice90dAvg,\n  offers: p.offers,\n  offer_count: p.offerCount,\n  ingredients: p.ingredients,\n  active_ingredients: p.activeIngredients,\n  special_ingredients: p.specialIngredients,\n  nutrition_facts: p.nutritionFacts,\n  warnings: p.warnings,\n  directions: p.directions,\n  stats: p.stats,\n  days_listed: p.daysListed,\n  review_velocity: p.reviewVelocity,\n  revenue_per_review: p.revenuePerReview,\n  market_analysis: marketAnalysis,\n  review_analysis: reviewAnalysis,\n  ai_opportunity_score: marketAnalysis?.market_opportunity_score || null,\n  ai_risk_profile: marketAnalysis?.risk_profile || null,\n  ai_recession_proof_score: marketAnalysis?.recession_proof_score || null,\n  ai_competitive_intensity: marketAnalysis?.competitive_intensity || null,\n  ai_pricing_assessment: marketAnalysis?.pricing_assessment || null,\n  ai_entry_recommendation: marketAnalysis?.entry_recommendation || null,\n  ai_is_consumable: marketAnalysis?.is_consumable || null,\n  ai_sentiment: reviewAnalysis?.overall_sentiment || null,\n  ai_sentiment_score: reviewAnalysis?.sentiment_score || null\n};\n\n// ============================================\n// KEYWORD RECORDS\n// ============================================\nconst kwRecs = kws.map(k => ({\n  research_id: rid,\n  asin: p.asin,\n  keyword: k.keyword,\n  search_volume: k.searchVolume,\n  competition: k.competition,\n  cpc: k.cpc,\n  rank: k.rank,\n  created_at: new Date().toISOString()\n}));\n\n// ============================================\n// REVIEW RECORDS - FIXED: Use correct field names\n// ============================================\nconst revRecs = reviewData.slice(0, 500).map(r => ({\n  research_id: rid,\n  asin: p.asin,\n  review_id: r.id || null,\n  rating: r.rating || null,\n  title: r.title || null,\n  body: (r.text || r.body || '').substring(0, 5000),\n  helpful_votes: r.helpful || 0,\n  has_images: false,\n  has_videos: false,\n  verified_purchase: r.verified || false,\n  review_date: r.date || null,\n  page_number: null,\n  created_at: new Date().toISOString()\n}));\n\n// ============================================\n// REVIEW SUMMARY RECORD - FIXED: Use correct field names\n// ============================================\nconst summaryRec = {\n  research_id: rid,\n  asin: p.asin,\n  total_reviews: revs?.count || reviewData.length || 0,\n  pages_scraped: 0,\n  pages_blocked: 0,\n  avg_rating: p.rating || null,\n  rating_5: 0,\n  rating_4: 0,\n  rating_3: 0,\n  rating_2: 0,\n  rating_1: 0,\n  ai_sentiment: reviewAnalysis?.overall_sentiment || null,\n  ai_pain_points: reviewAnalysis?.top_pain_points || null,\n  ai_praised_features: reviewAnalysis?.praised_features || null,\n  ai_key_insight: reviewAnalysis?.key_insight || null,\n  created_at: new Date().toISOString()\n};\n\nreturn [{ json: { \n  rid, \n  sbUrl: c.sbUrl, \n  sbKey: c.sbKey, \n  productRec, \n  kwRecs, \n  revRecs, \n  summaryRec, \n  original: d \n} }];"
+      }
+    },
+    {
+      "id": "save-product",
+      "name": "Save Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3620,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.sbUrl }}/rest/v1/amazon_products",
+        "authentication": "none",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.sbKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.sbKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.productRec) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "save-keywords",
+      "name": "Save Keywords",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3620,
+        450
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Supabase Data').item.json.sbUrl }}/rest/v1/amazon_keywords",
+        "authentication": "none",
+        "sendQuery": false,
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Prepare Supabase Data').item.json.sbKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Prepare Supabase Data').item.json.sbKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare Supabase Data').item.json.kwRecs) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "save-summary",
+      "name": "Save Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3620,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Supabase Data').item.json.sbUrl }}/rest/v1/amazon_review_summaries",
+        "authentication": "none",
+        "sendQuery": false,
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Prepare Supabase Data').item.json.sbKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Prepare Supabase Data').item.json.sbKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare Supabase Data').item.json.summaryRec) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "save-reviews",
+      "name": "Save Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3840,
+        450
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Supabase Data').item.json.sbUrl }}/rest/v1/amazon_reviews",
+        "authentication": "none",
+        "sendQuery": false,
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Prepare Supabase Data').item.json.sbKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Prepare Supabase Data').item.json.sbKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare Supabase Data').item.json.revRecs) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "format-sb-result",
+      "name": "Format Supabase Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4060,
+        450
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const prep = $('Prepare Supabase Data').first().json;\nreturn [{ json: {\n  success: true,\n  researchId: prep.rid,\n  asin: prep.original.product?.asin,\n  report: {\n    product: prep.original.product,\n    keywords: prep.original.keywords,\n    reviews: prep.original.reviews,\n    marketAnalysis: prep.original.marketAnalysis || null,\n    reviewAnalysis: prep.original.reviewAnalysis || null\n  },\n  supabase: {\n    saved: true,\n    researchId: prep.rid,\n    records: {\n      products: 1,\n      keywords: prep.kwRecs.length,\n      reviews: prep.revRecs.length,\n      summaries: 1\n    }\n  },\n  timestamp: new Date().toISOString()\n}}];"
+      }
+    },
+    {
+      "id": "skip-sb",
+      "name": "Skip Supabase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3400,
+        600
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const d = $input.first().json;\nreturn [{ json: {\n  success: true,\n  asin: d.product?.asin,\n  report: {\n    product: d.product,\n    keywords: d.keywords,\n    reviews: d.reviews,\n    marketAnalysis: d.marketAnalysis || null,\n    reviewAnalysis: d.reviewAnalysis || null\n  },\n  supabase: { saved: false, reason: 'No Supabase URL configured' },\n  timestamp: new Date().toISOString()\n}}];"
+      }
+    },
+    {
+      "id": "final-merge",
+      "name": "Final Output",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4280,
+        500
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "detect-input",
+      "name": "Detect Input Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        430,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-asin",
+              "leftValue": "={{ $json.asin }}",
+              "rightValue": "B0",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "kw-serp",
+      "name": "Keepa Product Finder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        650,
+        650
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.keepa.com/query?key={{ $json.keepaKey }}&domain={{ $json.domain }}&perPage={{ $json.maxProducts }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\"title\":\"{{ $json.searchKeyword }}\"}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "extract-asins",
+      "name": "Extract ASINs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        870,
+        650
+      ],
+      "parameters": {
+        "jsCode": "const config = $('Set Config').first().json;\nconst data = $input.first().json;\nconst asinList = data.asinList || [];\n\nif (asinList.length === 0) {\n  return [{ json: { error: 'No products found for keyword', searchKeyword: config.searchKeyword, config } }];\n}\n\nconst primaryAsin = asinList[0];\n\nreturn [{ json: { \n  ...config, \n  asin: primaryAsin,\n  discoveredAsins: asinList,\n  searchKeyword: config.searchKeyword,\n  entryType: 'keyword'\n} }];"
+      }
+    },
+    {
+      "id": "set-direct-asin",
+      "name": "Direct ASIN Entry",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        650,
+        400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "entry",
+              "name": "entryType",
+              "value": "asin",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true
+      }
+    },
+    {
+      "id": "merge-entry",
+      "name": "Merge Entry Points",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1090,
+        500
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "check-ai-analysis",
+      "name": "Run AI Analysis?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3050,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ai-check",
+              "leftValue": "={{ $json.config?.runAiAnalysis }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "ai-market-analysis",
+      "name": "AI Market Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3250,
+        350
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.config.openaiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-5.2\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an Amazon market analyst. Always respond with valid JSON only, no markdown.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this product data and provide a structured assessment.\\n\\n**Product Data:**\\n- ASIN: {{ $json.product.asin }}\\n- Title: {{ $json.product.title }}\\n- Brand: {{ $json.product.brand }}\\n- Category: {{ $json.product.rootCategory }}\\n- BSR: {{ $json.product.currentBSR }} (Growth 30d: {{ $json.product.bsrGrowth30d }}%)\\n- Price: ${{ $json.product.listPrice || $json.product.amazonPrice || $json.product.newPrice }}\\n- Rating: {{ $json.product.rating }} ({{ $json.product.reviewCount }} reviews)\\n- Monthly Sales: {{ $json.product.monthlySold }}\\n- Review Velocity: {{ $json.product.reviewVelocity }} reviews/day\\n- Days Listed: {{ $json.product.daysListed }}\\n- Variations: {{ $json.product.variationCount }}\\n- FBA Fee: ${{ $json.product.fbaFees?.pickAndPackFee }}\\n- Size Tier: {{ $json.product.sizeTier }}\\n\\nRespond with this exact JSON structure:\\n{\\n  \\\"market_opportunity_score\\\": <1-10>,\\n  \\\"risk_profile\\\": \\\"<High/Medium/Low>\\\",\\n  \\\"risk_factors\\\": [\\\"<factor1>\\\", \\\"<factor2>\\\"],\\n  \\\"is_consumable\\\": <true/false>,\\n  \\\"recession_proof_score\\\": <1-10>,\\n  \\\"competitive_intensity\\\": \\\"<High/Medium/Low>\\\",\\n  \\\"key_selling_points\\\": [\\\"<usp1>\\\", \\\"<usp2>\\\", \\\"<usp3>\\\"],\\n  \\\"differentiation_opportunities\\\": [\\\"<opp1>\\\", \\\"<opp2>\\\"],\\n  \\\"target_audience\\\": \\\"<description>\\\",\\n  \\\"pricing_assessment\\\": \\\"<Premium/Competitive/Value>\\\",\\n  \\\"entry_recommendation\\\": \\\"<Enter/Cautious/Avoid>\\\",\\n  \\\"reasoning\\\": \\\"<2-3 sentence summary>\\\"\\n}\"\n    }\n  ],\n  \"temperature\": 0.3,\n  \"max_completion_tokens\": 1500\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "parse-market-analysis",
+      "name": "Parse Market Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3450,
+        350
+      ],
+      "parameters": {
+        "jsCode": "// Parse OpenAI market analysis response\nconst items = $input.all();\nconst results = [];\n\n// Get the original data from Merge Reviews node\nconst mergeReviewsData = $('Merge Reviews').first().json;\nconst config = mergeReviewsData.config;\nconst product = mergeReviewsData.product;\nconst keywords = mergeReviewsData.keywords;\nconst reviews = mergeReviewsData.reviews;\n\nfor (const item of items) {\n  const data = item.json;\n  let marketAnalysis = null;\n  \n  try {\n    // OpenAI response structure: data.choices[0].message.content\n    const responseText = data.choices?.[0]?.message?.content || '';\n    const jsonMatch = responseText.match(/\\{[\\s\\S]*\\}/);\n    \n    if (jsonMatch) {\n      marketAnalysis = JSON.parse(jsonMatch[0]);\n    }\n  } catch (e) {\n    marketAnalysis = { error: 'Failed to parse AI response', raw: data.choices?.[0]?.message?.content?.substring(0, 500) };\n  }\n  \n  results.push({\n    json: {\n      config,\n      product,\n      keywords,\n      reviews,\n      marketAnalysis\n    }\n  });\n}\n\nreturn results;"
+      }
+    },
+    {
+      "id": "skip-ai",
+      "name": "Skip AI Analysis",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3250,
+        650
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-marker",
+              "name": "marketAnalysis",
+              "value": "={{ { skipped: true } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true
+      }
+    },
+    {
+      "id": "merge-ai",
+      "name": "Merge AI Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3650,
+        500
+      ],
+      "parameters": {
+        "mode": "append",
+        "mergeByFields": {
+          "values": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "has-reviews-for-ai",
+      "name": "Has Reviews?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3550,
+        350
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "hasReviewItems",
+              "leftValue": "={{ $json.reviews && $json.reviews.count > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "ai-review-analysis",
+      "name": "AI Review Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3750,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.config.openaiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-5.2', messages: [{ role: 'system', content: 'You are an Amazon review analyst. Always respond with valid JSON only, no markdown.' }, { role: 'user', content: 'Analyze these customer reviews and provide insights.\\n\\nProduct: ' + $json.product.title + '\\n\\nReviews: ' + JSON.stringify($json.reviews.items.slice(0, 10)) + '\\n\\nRespond with this exact JSON structure: { \"overall_sentiment\": \"<Positive/Mixed/Negative>\", \"sentiment_score\": <1-10>, \"top_pain_points\": [\"<pain1>\", \"<pain2>\"], \"praised_features\": [\"<feature1>\", \"<feature2>\"], \"feature_requests\": [\"<request1>\"], \"quality_issues\": [\"<issue1>\"], \"common_use_cases\": [\"<use1>\", \"<use2>\"], \"competitor_mentions\": [\"<competitor1>\"], \"key_insight\": \"<one sentence summary>\" }' }], temperature: 0.3, max_completion_tokens: 1500 }) }}"
+      }
+    },
+    {
+      "id": "parse-review-analysis",
+      "name": "Parse Review Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3950,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Parse OpenAI review analysis response\nconst items = $input.all();\nconst results = [];\n\n// Get the original data from Has Reviews? node which has marketAnalysis\nconst hasReviewsData = $('Has Reviews?').first().json;\nconst config = hasReviewsData.config;\nconst product = hasReviewsData.product;\nconst keywords = hasReviewsData.keywords;\nconst reviews = hasReviewsData.reviews;\nconst marketAnalysis = hasReviewsData.marketAnalysis;\n\nfor (const item of items) {\n  const data = item.json;\n  let reviewAnalysis = null;\n  \n  try {\n    const text = data.choices?.[0]?.message?.content || '';\n    const match = text.match(/\\{[\\s\\S]*\\}/);\n    if (match) reviewAnalysis = JSON.parse(match[0]);\n  } catch (e) {\n    reviewAnalysis = { error: 'Parse failed' };\n  }\n  \n  results.push({\n    json: {\n      config,\n      product,\n      keywords,\n      reviews,\n      marketAnalysis,\n      reviewAnalysis\n    }\n  });\n}\n\nreturn results;"
+      }
+    },
+    {
+      "id": "skip-review-ai",
+      "name": "Skip Review AI",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3850,
+        500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-review",
+              "name": "reviewAnalysis",
+              "value": "={{ { skipped: true } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true
+      }
+    },
+    {
+      "id": "merge-review-ai",
+      "name": "Merge Review AI",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4150,
+        350
+      ],
+      "parameters": {
+        "mode": "append",
+        "mergeByFields": {
+          "values": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "select-review-service",
+      "name": "Select Review Service",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "hasBrightData",
+              "leftValue": "={{ $json.config.brightDataKey }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "bright-data-reviews",
+      "name": "Bright Data Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2300,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.brightdata.com/datasets/v3/trigger?dataset_id=gd_le8e811kzy4ggddlq&format=json",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.config.brightDataKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ url: 'https://www.amazon.com/dp/' + $json.config.asin + '/' }]) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "apify-reviews",
+      "name": "Apify Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2300,
+        500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/junglee~amazon-reviews-scraper/run-sync-get-dataset-items?token={{ $json.config.apifyToken }}",
+        "authentication": "none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ productUrls: [{url: 'https://www.amazon.com/dp/' + $json.config.asin}], maxReviews: $json.config.maxReviews || 100 }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      }
+    },
+    {
+      "id": "merge-review-services",
+      "name": "Merge Review Services",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        2520,
+        400
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "normalize-reviews",
+      "name": "Normalize Reviews",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2740,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Normalize reviews from Bright Data or Apify to common format\nconst mergeKwData = $('Merge KW').first().json;\nconst config = mergeKwData.config;\nconst product = mergeKwData.product;\nconst keywords = mergeKwData.keywords;\n\nconst apiResponse = $input.all().map(i => i.json);\nlet reviews = [];\nlet source = 'unknown';\n\nlet flatResponse = apiResponse.flat();\n\n// Detect Bright Data format (review_text field)\nif (flatResponse.length > 0 && flatResponse[0] && flatResponse[0].review_text) {\n  source = 'brightdata';\n  reviews = flatResponse.map(r => ({\n    id: r.review_id || '',\n    title: r.review_title || '',\n    text: r.review_text || '',\n    rating: r.rating || 0,\n    date: r.review_date || '',\n    verified: r.verified_purchase || false,\n    helpful: r.helpful_count || 0,\n    author: r.reviewer_name || ''\n  }));\n} \n// Detect Apify/junglee format (reviewTitle field)\nelse if (flatResponse.length > 0 && flatResponse[0] && flatResponse[0].reviewTitle) {\n  source = 'apify';\n  reviews = flatResponse.map(r => ({\n    id: r.reviewId || '',\n    title: r.reviewTitle || '',\n    text: r.reviewDescription || '',\n    rating: r.ratingScore || 0,\n    date: r.date || '',\n    verified: r.isVerified || false,\n    helpful: parseInt(r.reviewReaction) || 0,\n    author: r.userId || ''\n  }));\n}\n\nreturn [{\n  json: {\n    config,\n    product,\n    keywords,\n    reviews: {\n      source,\n      count: reviews.length,\n      items: reviews\n    }\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Research Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Detect Input Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Input Type": {
+      "main": [
+        [
+          {
+            "node": "Direct ASIN Entry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Keepa Product Finder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Direct ASIN Entry": {
+      "main": [
+        [
+          {
+            "node": "Merge Entry Points",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keepa Product Finder": {
+      "main": [
+        [
+          {
+            "node": "Extract ASINs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract ASINs": {
+      "main": [
+        [
+          {
+            "node": "Merge Entry Points",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Entry Points": {
+      "main": [
+        [
+          {
+            "node": "1. Keepa Product API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Keepa Product API": {
+      "main": [
+        [
+          {
+            "node": "Transform Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Product": {
+      "main": [
+        [
+          {
+            "node": "Has Keywords?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Keywords?": {
+      "main": [
+        [
+          {
+            "node": "2. DataForSEO Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. DataForSEO Keywords": {
+      "main": [
+        [
+          {
+            "node": "Transform Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Keywords": {
+      "main": [
+        [
+          {
+            "node": "Merge KW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Keywords": {
+      "main": [
+        [
+          {
+            "node": "Merge KW",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge KW": {
+      "main": [
+        [
+          {
+            "node": "Scrape Reviews?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Reviews?": {
+      "main": [
+        [
+          {
+            "node": "Select Review Service",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Review Service": {
+      "main": [
+        [
+          {
+            "node": "Bright Data Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Apify Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bright Data Reviews": {
+      "main": [
+        [
+          {
+            "node": "Merge Review Services",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify Reviews": {
+      "main": [
+        [
+          {
+            "node": "Merge Review Services",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Review Services": {
+      "main": [
+        [
+          {
+            "node": "Normalize Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Reviews": {
+      "main": [
+        [
+          {
+            "node": "Merge Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Reviews": {
+      "main": [
+        [
+          {
+            "node": "Merge Reviews",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Reviews": {
+      "main": [
+        [
+          {
+            "node": "Run AI Analysis?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run AI Analysis?": {
+      "main": [
+        [
+          {
+            "node": "AI Market Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Market Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse Market Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Market Analysis": {
+      "main": [
+        [
+          {
+            "node": "Has Reviews?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Reviews?": {
+      "main": [
+        [
+          {
+            "node": "AI Review Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Review AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Review Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse Review Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Review Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge Review AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Review AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Review AI",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Skip AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Review AI": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge AI Results": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Supabase Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Supabase Data": {
+      "main": [
+        [
+          {
+            "node": "Save Product",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Supabase Result",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Keywords",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Supabase Result": {
+      "main": [
+        [
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Supabase": {
+      "main": [
+        [
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "d6973e82-5771-4982-8979-6db80d78c6be",
+  "activeVersionId": "d6973e82-5771-4982-8979-6db80d78c6be",
+  "versionCounter": 179,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-01-14T22:36:10.555Z",
+      "createdAt": "2026-01-14T22:36:10.555Z",
+      "role": "workflow:owner",
+      "workflowId": "JHBsr7jS9CMs45WU",
+      "projectId": "T2BNBY3vNVRT9JxX",
+      "project": {
+        "updatedAt": "2025-09-08T23:13:02.481Z",
+        "createdAt": "2025-09-08T23:10:51.295Z",
+        "id": "T2BNBY3vNVRT9JxX",
+        "name": "Jeremy Hamilton <jeremy@ignitabull.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "75e56a99-ffa6-49af-8906-2f08adc1738b",
+        "projectRelations": [
+          {
+            "updatedAt": "2025-09-08T23:10:51.295Z",
+            "createdAt": "2025-09-08T23:10:51.295Z",
+            "userId": "75e56a99-ffa6-49af-8906-2f08adc1738b",
+            "projectId": "T2BNBY3vNVRT9JxX",
+            "user": {
+              "updatedAt": "2026-01-14T23:00:52.789Z",
+              "createdAt": "2025-09-08T23:10:50.143Z",
+              "id": "75e56a99-ffa6-49af-8906-2f08adc1738b",
+              "email": "jeremy@ignitabull.com",
+              "firstName": "Jeremy",
+              "lastName": "Hamilton",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-09-08T23:13:06.408Z",
+                "personalization_survey_n8n_version": "1.110.1"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "dismissedCallouts": {
+                  "preBuiltAgentsModalCallout": true
+                },
+                "firstSuccessfulWorkflowId": "FkELrnwAAr72U1Iy",
+                "userActivatedAt": 1765326652116,
+                "npsSurvey": {
+                  "waitingForResponse": true,
+                  "ignoredCount": 1,
+                  "lastShownAt": 1765609743631
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-14",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-01-15T09:15:20.425Z",
+    "createdAt": "2026-01-15T09:15:20.425Z",
+    "versionId": "d6973e82-5771-4982-8979-6db80d78c6be",
+    "workflowId": "JHBsr7jS9CMs45WU",
+    "nodes": [
+      {
+        "id": "webhook-trigger",
+        "name": "Research Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          100,
+          500
+        ],
+        "webhookId": "research-supabase",
+        "parameters": {
+          "path": "research-supabase",
+          "httpMethod": "POST",
+          "responseMode": "lastNode"
+        }
+      },
+      {
+        "id": "set-config",
+        "name": "Set Config",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          320,
+          500
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "asin",
+                "name": "asin",
+                "value": "={{ $json.body.asin || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "searchKeyword",
+                "name": "searchKeyword",
+                "value": "={{ $json.body.keyword || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "maxProducts",
+                "name": "maxProducts",
+                "value": "={{ $json.body.maxProducts || 5 }}",
+                "type": "number"
+              },
+              {
+                "id": "domain",
+                "name": "domain",
+                "value": "={{ $json.body.domain || 1 }}",
+                "type": "number"
+              },
+              {
+                "id": "keepaKey",
+                "name": "keepaKey",
+                "value": "={{ $json.body.keepaKey || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "dataforseoAuth",
+                "name": "dataforseoAuth",
+                "value": "={{ $json.body.dataforseoAuth || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "fetchKeywords",
+                "name": "fetchKeywords",
+                "value": "={{ $json.body.fetchKeywords === true }}",
+                "type": "boolean"
+              },
+              {
+                "id": "scrapeReviews",
+                "name": "scrapeReviews",
+                "value": "={{ $json.body.scrapeReviews === true }}",
+                "type": "boolean"
+              },
+              {
+                "id": "maxReviews",
+                "name": "maxReviews",
+                "value": "={{ $json.body.maxReviews || 100 }}",
+                "type": "number"
+              },
+              {
+                "id": "brightDataKey",
+                "name": "brightDataKey",
+                "value": "={{ $json.body.brightDataKey || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "apifyToken",
+                "name": "apifyToken",
+                "value": "={{ $json.body.apifyToken || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "sbUrl",
+                "name": "sbUrl",
+                "value": "={{ $json.body.sbUrl || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "sbKey",
+                "name": "sbKey",
+                "value": "={{ $json.body.sbKey || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "openaiKey",
+                "name": "openaiKey",
+                "value": "={{ $json.body.openaiKey || '' }}",
+                "type": "string"
+              },
+              {
+                "id": "runAiAnalysis",
+                "name": "runAiAnalysis",
+                "value": "={{ $json.body.runAiAnalysis === true }}",
+                "type": "boolean"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "keepa-api",
+        "name": "1. Keepa Product API",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          540,
+          500
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "https://api.keepa.com/product",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "key",
+                "value": "={{ $json.keepaKey }}"
+              },
+              {
+                "name": "domain",
+                "value": "={{ $json.domain }}"
+              },
+              {
+                "name": "asin",
+                "value": "={{ $json.asin }}"
+              },
+              {
+                "name": "stats",
+                "value": "90"
+              },
+              {
+                "name": "history",
+                "value": "1"
+              },
+              {
+                "name": "days",
+                "value": "180"
+              },
+              {
+                "name": "rating",
+                "value": "1"
+              },
+              {
+                "name": "offers",
+                "value": "20"
+              },
+              {
+                "name": "buybox",
+                "value": "1"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "transform-product",
+        "name": "Transform Product",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          500
+        ],
+        "parameters": {
+          "jsCode": "const config = $('Set Config').first().json;\nconst data = $input.first().json;\n\nif (!data.products || !data.products[0]) {\n  return [{ json: { error: 'No product found', config } }];\n}\n\nconst p = data.products[0];\n\n// Helper functions - return NUMBERS not strings\nconst getPrice = (csv, i) => {\n  if (!csv?.[i]?.length || csv[i].length < 2) return null;\n  const val = csv[i][csv[i].length-1];\n  return val > 0 ? val / 100 : null;\n};\n\nconst getPriceHistory = (csv, i, days = 30) => {\n  if (!csv?.[i]?.length) return null;\n  const now = Date.now();\n  const cutoff = now - (days * 24 * 60 * 60 * 1000);\n  const history = [];\n  for (let j = 0; j < csv[i].length; j += 2) {\n    const timestamp = (csv[i][j] + 21564000) * 60000;\n    if (timestamp >= cutoff && csv[i][j+1] > 0) {\n      history.push({ date: new Date(timestamp).toISOString().split('T')[0], value: csv[i][j+1] / 100 });\n    }\n  }\n  return history.length > 0 ? history : null;\n};\n\nconst getBSR = (sr) => {\n  if (!sr) return null;\n  const categories = Object.keys(sr);\n  if (!categories.length) return null;\n  const mainCat = categories[0];\n  const ranks = sr[mainCat];\n  return ranks?.length ? ranks[ranks.length - 1] : null;\n};\n\nconst getAllBSR = (sr) => {\n  if (!sr) return {};\n  const result = {};\n  for (const [catId, ranks] of Object.entries(sr)) {\n    if (ranks?.length) {\n      result[catId] = {\n        current: ranks[ranks.length - 1],\n        history: ranks.slice(-10)\n      };\n    }\n  }\n  return result;\n};\n\n// Calculate BSR change (improvement is negative, decline is positive)\nconst calcBSRChange = (sr, days = 30) => {\n  if (!sr) return null;\n  const mainCat = Object.keys(sr)[0];\n  if (!mainCat || !sr[mainCat]?.length) return null;\n  const ranks = sr[mainCat];\n  const current = ranks[ranks.length - 1];\n  const older = ranks.length > 2 ? ranks[Math.max(0, ranks.length - (days * 2))] : ranks[0];\n  if (!older || !current) return null;\n  return current - older; // Negative means improvement\n};\n\nconst calcBSRGrowth = (sr, days = 30) => {\n  if (!sr) return null;\n  const mainCat = Object.keys(sr)[0];\n  if (!mainCat || !sr[mainCat]?.length) return null;\n  const ranks = sr[mainCat];\n  const current = ranks[ranks.length - 1];\n  const older = ranks.length > 2 ? ranks[Math.max(0, ranks.length - (days * 2))] : ranks[0];\n  if (!older || !current) return null;\n  return ((older - current) / older * 100); // Positive means improvement\n};\n\n// Calculate monthly sales growth from history\nconst calcSalesGrowth = (history) => {\n  if (!history || history.length < 2) return null;\n  const current = history[history.length - 1];\n  const previous = history[Math.max(0, history.length - 2)];\n  if (!previous || previous === 0) return null;\n  return ((current - previous) / previous * 100);\n};\n\n// Calculate new ratings from review count history\nconst calcNewRatings = (csv, days = 30) => {\n  if (!csv?.[17]?.length || csv[17].length < 4) return null;\n  const current = csv[17][csv[17].length - 1];\n  const older = csv[17][Math.max(0, csv[17].length - (days * 2) - 1)];\n  if (older === undefined) return null;\n  return current - older;\n};\n\n// Unit conversion helpers - return NUMBERS\nconst mmToInches = (mm) => mm && mm > 0 ? mm / 25.4 : null;\nconst mmToCm = (mm) => mm && mm > 0 ? mm / 10 : null;\nconst gramsToOz = (g) => g && g > 0 ? g / 28.3495 : null;\nconst gramsToLbs = (g) => g && g > 0 ? g / 453.592 : null;\nconst gramsToKg = (g) => g && g > 0 ? g / 1000 : null;\nconst keepaTimeToDate = (kt) => kt ? new Date((kt + 21564000) * 60000).toISOString().split('T')[0] : null;\n\n// Get sub-category info\nconst getSubCategories = (sr, rootCat) => {\n  if (!sr) return [];\n  const subCats = [];\n  for (const [catId, ranks] of Object.entries(sr)) {\n    if (catId !== String(rootCat) && ranks?.length) {\n      subCats.push({\n        categoryId: parseInt(catId),\n        currentBSR: ranks[ranks.length - 1],\n        bsrHistory: ranks.slice(-10)\n      });\n    }\n  }\n  return subCats;\n};\n\n// Determine primary fulfillment type from offers\nconst getFulfillmentType = (offers) => {\n  if (!offers || !offers.length) return null;\n  const fbaCount = offers.filter(o => o.isFBA).length;\n  const fbmCount = offers.length - fbaCount;\n  if (fbaCount > fbmCount) return 'FBA';\n  if (fbmCount > fbaCount) return 'FBM';\n  return 'Mixed';\n};\n\n// FBA Size Tier Weight Limits (oz)\nconst getSizeTierLimits = (tier) => {\n  const limits = {\n    'Small Standard': { maxWeight: 12, maxLength: 15, maxWidth: 12, maxHeight: 0.75 },\n    'Large Standard': { maxWeight: 320, maxLength: 18, maxWidth: 14, maxHeight: 8 },\n    'Small Oversize': { maxWeight: 1120, maxLengthPlusGirth: 130, maxLength: 60 },\n    'Medium Oversize': { maxWeight: 2400, maxLengthPlusGirth: 130, maxLength: 60 },\n    'Large Oversize': { maxWeight: 4480, maxLengthPlusGirth: 165, maxLength: 108 },\n    'Special Oversize': { maxWeight: null, maxLengthPlusGirth: null, maxLength: null }\n  };\n  return limits[tier] || null;\n};\n\n// Build comprehensive product object with proper data types\nconst product = {\n  // === PRODUCT IDENTIFICATION ===\n  asin: p.asin,\n  parentAsin: p.parentAsin || null,\n  variationCSV: p.variationCSV || null,\n  upc: p.upcList?.[0] || null,\n  ean: p.eanList?.[0] || null,\n  mpn: p.mpn || null,\n  partNumber: p.partNumber || null,\n  model: p.model || null,\n  binding: p.binding || null,\n  productGroup: p.productGroup || null,\n  productType: p.type || null,\n  color: p.color || null,\n  size: p.size || null,\n  format: p.format || null,\n  edition: p.edition || null,\n  platform: p.platform || null,\n  \n  // === URLS & IMAGES ===\n  url: `https://amazon.com/dp/${p.asin}`,\n  urlSlug: p.urlSlug || null,\n  imageUrl: p.imagesCSV ? `https://images-na.ssl-images-amazon.com/images/I/${p.imagesCSV.split(',')[0]}` : null,\n  allImages: p.imagesCSV ? p.imagesCSV.split(',').map(img => `https://images-na.ssl-images-amazon.com/images/I/${img}`) : [],\n  imageCount: p.imagesCSV ? p.imagesCSV.split(',').length : 0,\n  \n  // === PRODUCT DETAILS ===\n  title: p.title || null,\n  description: p.description || null,\n  features: p.features || [],\n  featureCount: p.features?.length || 0,\n  \n  // === BRAND & MANUFACTURER ===\n  brand: p.brand || null,\n  brandStoreName: p.brandStoreName || null,\n  brandStoreUrl: p.brandStoreUrl ? `https://amazon.com${p.brandStoreUrl}` : null,\n  manufacturer: p.manufacturer || null,\n  label: p.label || null,\n  publisher: p.publisher || null,\n  studio: p.studio || null,\n  author: p.author || null,\n  contributors: p.contributors || null,\n  \n  // === CATEGORY & CLASSIFICATION ===\n  rootCategory: p.rootCategory || null,\n  categoryTree: p.categoryTree || null,\n  categories: p.categories || null,\n  subCategories: getSubCategories(p.salesRanks, p.rootCategory),\n  salesRankReference: p.salesRankReference || null,\n  \n  // === BSR (BEST SELLER RANK) ===\n  currentBSR: getBSR(p.salesRanks),\n  allCategoryBSR: getAllBSR(p.salesRanks),\n  bsrChange30d: calcBSRChange(p.salesRanks, 30),\n  bsrChange90d: calcBSRChange(p.salesRanks, 90),\n  bsrGrowth30d: calcBSRGrowth(p.salesRanks, 30),\n  bsrGrowth90d: calcBSRGrowth(p.salesRanks, 90),\n  \n  // === PRICING (Current) - Numbers ===\n  amazonPrice: getPrice(p.csv, 0),\n  newPrice: getPrice(p.csv, 1),\n  usedPrice: getPrice(p.csv, 2),\n  listPrice: getPrice(p.csv, 4),\n  collectiblePrice: getPrice(p.csv, 5),\n  refurbishedPrice: getPrice(p.csv, 6),\n  newFBMShipping: getPrice(p.csv, 7),\n  fbaPrice: getPrice(p.csv, 10),\n  buyBoxPrice: getPrice(p.csv, 18),\n  warehousePrice: getPrice(p.csv, 9),\n  ebayNewPrice: getPrice(p.csv, 12),\n  ebayUsedPrice: getPrice(p.csv, 13),\n  \n  // === PRICING (Historical) ===\n  priceHistory30d: getPriceHistory(p.csv, 0, 30),\n  priceHistory90d: getPriceHistory(p.csv, 0, 90),\n  \n  // === COUPON & PROMOTIONS ===\n  coupon: p.coupon || null,\n  couponHistory: p.couponHistory || null,\n  promotions: p.promotions || null,\n  \n  // === SALES PERFORMANCE ===\n  monthlySold: p.monthlySold || null,\n  monthlySoldHistory: p.monthlySoldHistory || null,\n  monthlySalesGrowth: calcSalesGrowth(p.monthlySoldHistory),\n  estimatedRevenue: p.monthlySold && getPrice(p.csv, 0) ? p.monthlySold * getPrice(p.csv, 0) : null,\n  \n  // === CUSTOMER FEEDBACK ===\n  rating: p.csv?.[16]?.length ? p.csv[16][p.csv[16].length-1] / 10 : null,\n  reviewCount: p.csv?.[17]?.length ? p.csv[17][p.csv[17].length-1] : null,\n  newlyRatings30d: calcNewRatings(p.csv, 30),\n  newlyRatings90d: calcNewRatings(p.csv, 90),\n  ratingHistory: p.csv?.[16]?.length ? p.csv[16].slice(-20).filter((_, i) => i % 2 === 1).map(v => v/10) : [],\n  reviewCountHistory: p.csv?.[17]?.length ? p.csv[17].slice(-20).filter((_, i) => i % 2 === 1) : [],\n  \n  // === OFFER COUNTS ===\n  amazonOfferCount: p.csv?.[20]?.length ? p.csv[20][p.csv[20].length-1] : null,\n  newOfferCount: p.csv?.[11]?.length ? p.csv[11][p.csv[11].length-1] : null,\n  usedOfferCount: p.csv?.[14]?.length ? p.csv[14][p.csv[14].length-1] : null,\n  collectibleOfferCount: p.csv?.[15]?.length ? p.csv[15][p.csv[15].length-1] : null,\n  refurbishedOfferCount: p.csv?.[19]?.length ? p.csv[19][p.csv[19].length-1] : null,\n  \n  // === VARIATIONS ===\n  variationCount: p.variations?.length || 0,\n  variations: (p.variations || []).map(v => ({\n    asin: v.asin,\n    attributes: v.attributes,\n    dimension: v.dimension\n  })),\n  variationAttributes: p.variationAttributes || null,\n  \n  // === PACKAGE DIMENSIONS (Raw in mm/g) ===\n  packageWeightGrams: p.packageWeight > 0 ? p.packageWeight : null,\n  packageHeightMM: p.packageHeight > 0 ? p.packageHeight : null,\n  packageLengthMM: p.packageLength > 0 ? p.packageLength : null,\n  packageWidthMM: p.packageWidth > 0 ? p.packageWidth : null,\n  \n  // === PACKAGE DIMENSIONS (Converted) - Numbers ===\n  packageWeightKg: gramsToKg(p.packageWeight),\n  packageWeightLbs: gramsToLbs(p.packageWeight),\n  packageWeightOz: gramsToOz(p.packageWeight),\n  packageHeightCm: mmToCm(p.packageHeight),\n  packageHeightIn: mmToInches(p.packageHeight),\n  packageLengthCm: mmToCm(p.packageLength),\n  packageLengthIn: mmToInches(p.packageLength),\n  packageWidthCm: mmToCm(p.packageWidth),\n  packageWidthIn: mmToInches(p.packageWidth),\n  \n  // === ITEM DIMENSIONS (Raw in mm/g) ===\n  itemWeightGrams: p.itemWeight > 0 ? p.itemWeight : null,\n  itemHeightMM: p.itemHeight > 0 ? p.itemHeight : null,\n  itemLengthMM: p.itemLength > 0 ? p.itemLength : null,\n  itemWidthMM: p.itemWidth > 0 ? p.itemWidth : null,\n  \n  // === ITEM DIMENSIONS (Converted) - Numbers ===\n  itemWeightKg: gramsToKg(p.itemWeight),\n  itemWeightLbs: gramsToLbs(p.itemWeight),\n  itemWeightOz: gramsToOz(p.itemWeight),\n  itemHeightCm: mmToCm(p.itemHeight),\n  itemHeightIn: mmToInches(p.itemHeight),\n  itemLengthCm: mmToCm(p.itemLength),\n  itemLengthIn: mmToInches(p.itemLength),\n  itemWidthCm: mmToCm(p.itemWidth),\n  itemWidthIn: mmToInches(p.itemWidth),\n  \n  // === DIMENSIONAL WEIGHT CALCULATIONS ===\n  dimWeightOz: null, // Calculated below\n  dimWeightLbs: null,\n  \n  // === PACKAGE QUANTITIES ===\n  numberOfItems: p.numberOfItems > 0 ? p.numberOfItems : null,\n  packageQuantity: p.packageQuantity > 0 ? p.packageQuantity : null,\n  \n  // === FBA FEES ===\n  fbaFees: p.fbaFees ? {\n    pickAndPackFee: p.fbaFees.pickAndPackFee ? p.fbaFees.pickAndPackFee / 100 : null,\n    perItemFee: p.fbaFees.perItemFee ? p.fbaFees.perItemFee / 100 : null,\n    storageFee: p.fbaFees.storageFee ? p.fbaFees.storageFee / 100 : null,\n    lastUpdate: keepaTimeToDate(p.fbaFees.lastUpdate)\n  } : null,\n  referralFeePercentage: p.referralFeePercentage || null,\n  variableClosingFee: p.variableClosingFee ? p.variableClosingFee / 100 : null,\n  \n  // === PRODUCT STATUS & DATES ===\n  listedSince: keepaTimeToDate(p.listedSince),\n  trackingSince: keepaTimeToDate(p.trackingSince),\n  lastUpdate: keepaTimeToDate(p.lastUpdate),\n  lastPriceChange: keepaTimeToDate(p.lastPriceChange),\n  lastRatingUpdate: keepaTimeToDate(p.lastRatingUpdate),\n  \n  // === AVAILABILITY ===\n  availabilityAmazon: p.availabilityAmazon,\n  isAvailable: p.availabilityAmazon === 0 || (p.csv?.[0]?.length > 0 && p.csv[0][p.csv[0].length-1] > 0),\n  \n  // === FULFILLMENT ===\n  fulfillmentType: getFulfillmentType(p.offers),\n  fbaOfferCount: p.offers ? p.offers.filter(o => o.isFBA).length : 0,\n  fbmOfferCount: p.offers ? p.offers.filter(o => !o.isFBA).length : 0,\n  \n  // === PRODUCT FLAGS ===\n  isAdultProduct: p.isAdultProduct || false,\n  isEligibleForTradeIn: p.isEligibleForTradeIn || false,\n  isEligibleForSuperSaverShipping: p.isEligibleForSuperSaverShipping || false,\n  isSNS: p.isSNS || false,\n  isRedirectASIN: p.isRedirectASIN || false,\n  isPrimeExclusive: p.isPrimeExclusive || false,\n  launchpad: p.launchpad || false,\n  hazardousMaterials: p.hazardousMaterialType || null,\n  \n  // === CONTENT FEATURES ===\n  hasAPlus: !!p.aPlus,\n  aPlusModules: p.aPlus || null,\n  hasVideos: p.videos?.length > 0,\n  videos: p.videos || [],\n  videoCount: p.videos?.length || 0,\n  frequentlyBoughtTogether: p.frequentlyBoughtTogether || null,\n  \n  // === BUYBOX & SELLERS ===\n  buyBoxSellerId: p.stats?.buyBoxSellerId || null,\n  buyBoxIsFBA: p.stats?.buyBoxIsFBA || null,\n  buyBoxIsAmazon: p.stats?.buyBoxIsAmazon || null,\n  buyBoxPrice90dAvg: p.stats?.buyBoxPrice ? p.stats.buyBoxPrice / 100 : null,\n  \n  // === OFFERS (if requested) ===\n  offers: (p.offers || []).slice(0, 10).map(o => ({\n    sellerId: o.sellerId,\n    condition: o.condition,\n    isPrime: o.isPrime,\n    isFBA: o.isFBA,\n    isShippable: o.isShippable,\n    rating: o.rating,\n    ratingCount: o.ratingCount,\n    shipsFrom: o.shipsFromCountry\n  })),\n  offerCount: p.offers?.length || 0,\n  \n  // === INGREDIENTS (for supplements/food) ===\n  ingredients: p.ingredients || null,\n  activeIngredients: p.activeIngredients || null,\n  specialIngredients: p.specialIngredients || null,\n  nutritionFacts: p.nutritionFacts || null,\n  warnings: p.warnings || null,\n  directions: p.directions || null,\n  \n  // === STATS (90-day aggregates) ===\n  stats: p.stats ? {\n    current: p.stats.current,\n    avg30: p.stats.avg30,\n    avg90: p.stats.avg90,\n    outOfStockPercentage30: p.stats.outOfStockPercentage30,\n    outOfStockPercentage90: p.stats.outOfStockPercentage90,\n    totalOfferCount: p.stats.totalOfferCount,\n    lightningDealInfo: p.stats.lightningDealInfo,\n    buyBoxStats: p.stats.buyBoxStats\n  } : null,\n  \n  // === RAW DATA ===\n  _raw: {\n    domainId: p.domainId,\n    productType: p.productType,\n    hasReviews: p.hasReviews,\n    tokensConsumed: data.tokensConsumed,\n    timestamp: data.timestamp\n  }\n};\n\n// Calculate dimensional weight\nif (product.packageHeightIn && product.packageLengthIn && product.packageWidthIn) {\n  const dimWeight = (product.packageHeightIn * product.packageLengthIn * product.packageWidthIn) / 139;\n  product.dimWeightOz = dimWeight;\n  product.dimWeightLbs = dimWeight / 16;\n}\n\n// Calculate derived metrics\nproduct.daysListed = product.listedSince ? Math.floor((Date.now() - new Date(product.listedSince).getTime()) / (1000 * 60 * 60 * 24)) : null;\nproduct.reviewVelocity = product.reviewCount && product.daysListed > 0 ? product.reviewCount / product.daysListed : null;\nproduct.revenuePerReview = product.estimatedRevenue && product.reviewCount > 0 ? product.estimatedRevenue / product.reviewCount : null;\n\n// Determine size tier\nif (product.packageWeightOz && product.packageLengthIn && product.packageWidthIn && product.packageHeightIn) {\n  const weight = product.packageWeightOz;\n  const length = product.packageLengthIn;\n  const width = product.packageWidthIn;\n  const height = product.packageHeightIn;\n  const girth = 2 * (width + height);\n  const lengthPlusGirth = length + girth;\n  \n  if (weight <= 12 && length <= 15 && width <= 12 && height <= 0.75) {\n    product.sizeTier = 'Small Standard';\n  } else if (weight <= 320 && length <= 18 && width <= 14 && height <= 8) {\n    product.sizeTier = 'Large Standard';\n  } else if (weight <= 1120 && lengthPlusGirth <= 130 && length <= 60) {\n    product.sizeTier = 'Small Oversize';\n  } else if (weight <= 2400 && lengthPlusGirth <= 130 && length <= 60) {\n    product.sizeTier = 'Medium Oversize';\n  } else if (weight <= 4480 && lengthPlusGirth <= 165 && length <= 108) {\n    product.sizeTier = 'Large Oversize';\n  } else {\n    product.sizeTier = 'Special Oversize';\n  }\n  \n  // Get size tier limits\n  product.sizeTierLimits = getSizeTierLimits(product.sizeTier);\n  \n  // Calculate remaining weight in size tier\n  if (product.sizeTierLimits?.maxWeight) {\n    product.remainingWeightOz = product.sizeTierLimits.maxWeight - weight;\n    product.remainingWeightG = product.remainingWeightOz * 28.3495;\n  }\n} else {\n  product.sizeTier = null;\n  product.sizeTierLimits = null;\n}\n\nreturn [{ json: { product, config } }];"
+        }
+      },
+      {
+        "id": "check-kw",
+        "name": "Has Keywords?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          980,
+          500
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "kw",
+                "leftValue": "={{ $json.config.keywords }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "dataforseo",
+        "name": "2. DataForSEO Keywords",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1200,
+          400
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.dataforseo.com/v3/keywords_data/amazon/search_volume/live",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Basic {{ $json.config.dataforSeoAuth }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "=[{\"keywords\": {{ JSON.stringify($json.config.keywords.split(',').map(k => k.trim())) }}, \"location_code\": 2840, \"language_code\": \"en\"}]",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "transform-kw",
+        "name": "Transform Keywords",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1420,
+          400
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const prev = $('Transform Product').first().json;\nconst data = $input.first().json;\nconst kws = data.tasks?.[0]?.result?.map(r => ({ keyword: r.keyword, searchVolume: r.search_volume, competition: r.competition, cpc: r.cpc })) || [];\nreturn [{ json: { ...prev, keywords: kws } }];"
+        }
+      },
+      {
+        "id": "skip-kw",
+        "name": "No Keywords",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1200,
+          600
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "keywords",
+                "name": "keywords",
+                "value": "=[]",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true
+        }
+      },
+      {
+        "id": "merge-kw",
+        "name": "Merge KW",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          1640,
+          500
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "check-reviews",
+        "name": "Scrape Reviews?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1860,
+          500
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "scrapeReviews",
+                "leftValue": "={{ $json.config.scrapeReviews }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              },
+              {
+                "id": "hasApiKey",
+                "leftValue": "={{ $json.config.brightDataKey || $json.config.apifyToken }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "skip-reviews",
+        "name": "No Reviews",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          2080,
+          600
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "reviews",
+                "name": "reviews",
+                "value": "={{ { source: 'none', count: 0, items: [] } }}",
+                "type": "object"
+              }
+            ]
+          },
+          "includeOtherFields": true
+        }
+      },
+      {
+        "id": "merge-rev",
+        "name": "Merge Reviews",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          2960,
+          500
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "check-supabase",
+        "name": "Save to Supabase?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3180,
+          500
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "sb",
+                "leftValue": "={{ $json.config.sbUrl }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "prep-supabase",
+        "name": "Prepare Supabase Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3400,
+          400
+        ],
+        "parameters": {
+          "jsCode": "const d = $input.first().json;\nconst c = d.config;\nconst p = d.product || {};\n\n// Parse keywords and reviews if they're strings\nlet kws = d.keywords;\nif (typeof kws === 'string') {\n  try { kws = JSON.parse(kws); } catch(e) { kws = []; }\n}\nkws = kws || [];\n\nlet revs = d.reviews;\nif (typeof revs === 'string') {\n  try { revs = JSON.parse(revs); } catch(e) { revs = {}; }\n}\n// FIXED: Use revs.items instead of revs.data\nconst reviewData = revs?.items || [];\n\n// Get AI analysis results\nconst marketAnalysis = d.marketAnalysis || null;\nconst reviewAnalysis = d.reviewAnalysis || null;\n\nconst rid = `${p.asin}_${Date.now()}`;\n\n// ============================================\n// COMPREHENSIVE PRODUCT RECORD - ALL FIELDS\n// ============================================\nconst productRec = {\n  research_id: rid,\n  created_at: new Date().toISOString(),\n  asin: p.asin,\n  parent_asin: p.parentAsin,\n  upc: p.upc,\n  ean: p.ean,\n  mpn: p.mpn,\n  model: p.model,\n  part_number: p.partNumber,\n  binding: p.binding,\n  product_group: p.productGroup,\n  product_type: p.productType,\n  color: p.color,\n  size: p.size,\n  format: p.format,\n  edition: p.edition,\n  platform: p.platform,\n  url: p.url,\n  url_slug: p.urlSlug,\n  image_url: p.imageUrl,\n  all_images: p.allImages,\n  image_count: p.imageCount,\n  title: p.title,\n  description: p.description,\n  features: p.features,\n  feature_count: p.featureCount,\n  brand: p.brand,\n  brand_store_name: p.brandStoreName,\n  brand_store_url: p.brandStoreUrl,\n  manufacturer: p.manufacturer,\n  label: p.label,\n  publisher: p.publisher,\n  studio: p.studio,\n  author: p.author,\n  contributors: p.contributors,\n  root_category: p.rootCategory,\n  category_tree: p.categoryTree,\n  categories: p.categories,\n  sub_categories: p.subCategories,\n  sales_rank_reference: p.salesRankReference,\n  current_bsr: p.currentBSR,\n  all_category_bsr: p.allCategoryBSR,\n  bsr_change_30d: p.bsrChange30d,\n  bsr_change_90d: p.bsrChange90d,\n  bsr_growth_30d: p.bsrGrowth30d,\n  bsr_growth_90d: p.bsrGrowth90d,\n  amazon_price: p.amazonPrice,\n  new_price: p.newPrice,\n  used_price: p.usedPrice,\n  list_price: p.listPrice,\n  collectible_price: p.collectiblePrice,\n  refurbished_price: p.refurbishedPrice,\n  new_fbm_shipping: p.newFBMShipping,\n  fba_price: p.fbaPrice,\n  buy_box_price: p.buyBoxPrice,\n  warehouse_price: p.warehousePrice,\n  ebay_new_price: p.ebayNewPrice,\n  ebay_used_price: p.ebayUsedPrice,\n  price_history_30d: p.priceHistory30d,\n  price_history_90d: p.priceHistory90d,\n  coupon: p.coupon,\n  coupon_history: p.couponHistory,\n  promotions: p.promotions,\n  monthly_sold: p.monthlySold,\n  monthly_sold_history: p.monthlySoldHistory,\n  monthly_sales_growth: p.monthlySalesGrowth,\n  estimated_revenue: p.estimatedRevenue,\n  rating: p.rating,\n  review_count: p.reviewCount,\n  newly_ratings_30d: p.newlyRatings30d,\n  newly_ratings_90d: p.newlyRatings90d,\n  rating_history: p.ratingHistory,\n  review_count_history: p.reviewCountHistory,\n  amazon_offer_count: p.amazonOfferCount,\n  new_offer_count: p.newOfferCount,\n  used_offer_count: p.usedOfferCount,\n  collectible_offer_count: p.collectibleOfferCount,\n  refurbished_offer_count: p.refurbishedOfferCount,\n  fba_offer_count: p.fbaOfferCount,\n  fbm_offer_count: p.fbmOfferCount,\n  variation_count: p.variationCount,\n  variations: p.variations,\n  variation_attributes: p.variationAttributes,\n  package_weight_grams: p.packageWeightGrams,\n  package_height_mm: p.packageHeightMM,\n  package_length_mm: p.packageLengthMM,\n  package_width_mm: p.packageWidthMM,\n  package_weight_kg: p.packageWeightKg,\n  package_weight_lbs: p.packageWeightLbs,\n  package_weight_oz: p.packageWeightOz,\n  package_height_cm: p.packageHeightCm,\n  package_height_in: p.packageHeightIn,\n  package_length_cm: p.packageLengthCm,\n  package_length_in: p.packageLengthIn,\n  package_width_cm: p.packageWidthCm,\n  package_width_in: p.packageWidthIn,\n  item_weight_grams: p.itemWeightGrams,\n  item_height_mm: p.itemHeightMM,\n  item_length_mm: p.itemLengthMM,\n  item_width_mm: p.itemWidthMM,\n  item_weight_kg: p.itemWeightKg,\n  item_weight_lbs: p.itemWeightLbs,\n  item_weight_oz: p.itemWeightOz,\n  item_height_cm: p.itemHeightCm,\n  item_height_in: p.itemHeightIn,\n  item_length_cm: p.itemLengthCm,\n  item_length_in: p.itemLengthIn,\n  item_width_cm: p.itemWidthCm,\n  item_width_in: p.itemWidthIn,\n  dim_weight_oz: p.dimWeightOz,\n  dim_weight_lbs: p.dimWeightLbs,\n  number_of_items: p.numberOfItems,\n  package_quantity: p.packageQuantity,\n  fba_fees: p.fbaFees,\n  referral_fee_percentage: p.referralFeePercentage,\n  variable_closing_fee: p.variableClosingFee,\n  size_tier: p.sizeTier,\n  size_tier_limits: p.sizeTierLimits,\n  remaining_weight_oz: p.remainingWeightOz,\n  remaining_weight_g: p.remainingWeightG,\n  listed_since: p.listedSince,\n  tracking_since: p.trackingSince,\n  last_update: p.lastUpdate,\n  last_price_change: p.lastPriceChange,\n  last_rating_update: p.lastRatingUpdate,\n  availability_amazon: p.availabilityAmazon,\n  is_available: p.isAvailable,\n  fulfillment_type: p.fulfillmentType,\n  is_adult_product: p.isAdultProduct,\n  is_eligible_for_trade_in: p.isEligibleForTradeIn,\n  is_eligible_for_super_saver: p.isEligibleForSuperSaverShipping,\n  is_sns: p.isSNS,\n  is_redirect_asin: p.isRedirectASIN,\n  is_prime_exclusive: p.isPrimeExclusive,\n  launchpad: p.launchpad,\n  hazardous_materials: p.hazardousMaterials,\n  has_aplus: p.hasAPlus,\n  aplus_modules: p.aPlusModules,\n  has_videos: p.hasVideos,\n  videos: p.videos,\n  video_count: p.videoCount,\n  frequently_bought_together: p.frequentlyBoughtTogether,\n  buy_box_seller_id: p.buyBoxSellerId,\n  buy_box_is_fba: p.buyBoxIsFBA,\n  buy_box_is_amazon: p.buyBoxIsAmazon,\n  buy_box_price_90d_avg: p.buyBoxPrice90dAvg,\n  offers: p.offers,\n  offer_count: p.offerCount,\n  ingredients: p.ingredients,\n  active_ingredients: p.activeIngredients,\n  special_ingredients: p.specialIngredients,\n  nutrition_facts: p.nutritionFacts,\n  warnings: p.warnings,\n  directions: p.directions,\n  stats: p.stats,\n  days_listed: p.daysListed,\n  review_velocity: p.reviewVelocity,\n  revenue_per_review: p.revenuePerReview,\n  market_analysis: marketAnalysis,\n  review_analysis: reviewAnalysis,\n  ai_opportunity_score: marketAnalysis?.market_opportunity_score || null,\n  ai_risk_profile: marketAnalysis?.risk_profile || null,\n  ai_recession_proof_score: marketAnalysis?.recession_proof_score || null,\n  ai_competitive_intensity: marketAnalysis?.competitive_intensity || null,\n  ai_pricing_assessment: marketAnalysis?.pricing_assessment || null,\n  ai_entry_recommendation: marketAnalysis?.entry_recommendation || null,\n  ai_is_consumable: marketAnalysis?.is_consumable || null,\n  ai_sentiment: reviewAnalysis?.overall_sentiment || null,\n  ai_sentiment_score: reviewAnalysis?.sentiment_score || null\n};\n\n// ============================================\n// KEYWORD RECORDS\n// ============================================\nconst kwRecs = kws.map(k => ({\n  research_id: rid,\n  asin: p.asin,\n  keyword: k.keyword,\n  search_volume: k.searchVolume,\n  competition: k.competition,\n  cpc: k.cpc,\n  rank: k.rank,\n  created_at: new Date().toISOString()\n}));\n\n// ============================================\n// REVIEW RECORDS - FIXED: Use correct field names\n// ============================================\nconst revRecs = reviewData.slice(0, 500).map(r => ({\n  research_id: rid,\n  asin: p.asin,\n  review_id: r.id || null,\n  rating: r.rating || null,\n  title: r.title || null,\n  body: (r.text || r.body || '').substring(0, 5000),\n  helpful_votes: r.helpful || 0,\n  has_images: false,\n  has_videos: false,\n  verified_purchase: r.verified || false,\n  review_date: r.date || null,\n  page_number: null,\n  created_at: new Date().toISOString()\n}));\n\n// ============================================\n// REVIEW SUMMARY RECORD - FIXED: Use correct field names\n// ============================================\nconst summaryRec = {\n  research_id: rid,\n  asin: p.asin,\n  total_reviews: revs?.count || reviewData.length || 0,\n  pages_scraped: 0,\n  pages_blocked: 0,\n  avg_rating: p.rating || null,\n  rating_5: 0,\n  rating_4: 0,\n  rating_3: 0,\n  rating_2: 0,\n  rating_1: 0,\n  ai_sentiment: reviewAnalysis?.overall_sentiment || null,\n  ai_pain_points: reviewAnalysis?.top_pain_points || null,\n  ai_praised_features: reviewAnalysis?.praised_features || null,\n  ai_key_insight: reviewAnalysis?.key_insight || null,\n  created_at: new Date().toISOString()\n};\n\nreturn [{ json: { \n  rid, \n  sbUrl: c.sbUrl, \n  sbKey: c.sbKey, \n  productRec, \n  kwRecs, \n  revRecs, \n  summaryRec, \n  original: d \n} }];"
+        }
+      },
+      {
+        "id": "save-product",
+        "name": "Save Product",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3620,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.sbUrl }}/rest/v1/amazon_products",
+          "authentication": "none",
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $json.sbKey }}"
+              },
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $json.sbKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.productRec) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "save-keywords",
+        "name": "Save Keywords",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3620,
+          450
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Prepare Supabase Data').item.json.sbUrl }}/rest/v1/amazon_keywords",
+          "authentication": "none",
+          "sendQuery": false,
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $('Prepare Supabase Data').item.json.sbKey }}"
+              },
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $('Prepare Supabase Data').item.json.sbKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($('Prepare Supabase Data').item.json.kwRecs) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "save-summary",
+        "name": "Save Summary",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3620,
+          600
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Prepare Supabase Data').item.json.sbUrl }}/rest/v1/amazon_review_summaries",
+          "authentication": "none",
+          "sendQuery": false,
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $('Prepare Supabase Data').item.json.sbKey }}"
+              },
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $('Prepare Supabase Data').item.json.sbKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($('Prepare Supabase Data').item.json.summaryRec) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "save-reviews",
+        "name": "Save Reviews",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3840,
+          450
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Prepare Supabase Data').item.json.sbUrl }}/rest/v1/amazon_reviews",
+          "authentication": "none",
+          "sendQuery": false,
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $('Prepare Supabase Data').item.json.sbKey }}"
+              },
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $('Prepare Supabase Data').item.json.sbKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($('Prepare Supabase Data').item.json.revRecs) }}",
+          "options": {}
+        }
+      },
+      {
+        "id": "format-sb-result",
+        "name": "Format Supabase Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4060,
+          450
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const prep = $('Prepare Supabase Data').first().json;\nreturn [{ json: {\n  success: true,\n  researchId: prep.rid,\n  asin: prep.original.product?.asin,\n  report: {\n    product: prep.original.product,\n    keywords: prep.original.keywords,\n    reviews: prep.original.reviews,\n    marketAnalysis: prep.original.marketAnalysis || null,\n    reviewAnalysis: prep.original.reviewAnalysis || null\n  },\n  supabase: {\n    saved: true,\n    researchId: prep.rid,\n    records: {\n      products: 1,\n      keywords: prep.kwRecs.length,\n      reviews: prep.revRecs.length,\n      summaries: 1\n    }\n  },\n  timestamp: new Date().toISOString()\n}}];"
+        }
+      },
+      {
+        "id": "skip-sb",
+        "name": "Skip Supabase",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3400,
+          600
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const d = $input.first().json;\nreturn [{ json: {\n  success: true,\n  asin: d.product?.asin,\n  report: {\n    product: d.product,\n    keywords: d.keywords,\n    reviews: d.reviews,\n    marketAnalysis: d.marketAnalysis || null,\n    reviewAnalysis: d.reviewAnalysis || null\n  },\n  supabase: { saved: false, reason: 'No Supabase URL configured' },\n  timestamp: new Date().toISOString()\n}}];"
+        }
+      },
+      {
+        "id": "final-merge",
+        "name": "Final Output",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          4280,
+          500
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "detect-input",
+        "name": "Detect Input Type",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          430,
+          500
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "has-asin",
+                "leftValue": "={{ $json.asin }}",
+                "rightValue": "B0",
+                "operator": {
+                  "type": "string",
+                  "operation": "startsWith"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "kw-serp",
+        "name": "Keepa Product Finder",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          650,
+          650
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.keepa.com/query?key={{ $json.keepaKey }}&domain={{ $json.domain }}&perPage={{ $json.maxProducts }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Accept-Encoding",
+                "value": "gzip, deflate"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={\"title\":\"{{ $json.searchKeyword }}\"}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "extract-asins",
+        "name": "Extract ASINs",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          870,
+          650
+        ],
+        "parameters": {
+          "jsCode": "const config = $('Set Config').first().json;\nconst data = $input.first().json;\nconst asinList = data.asinList || [];\n\nif (asinList.length === 0) {\n  return [{ json: { error: 'No products found for keyword', searchKeyword: config.searchKeyword, config } }];\n}\n\nconst primaryAsin = asinList[0];\n\nreturn [{ json: { \n  ...config, \n  asin: primaryAsin,\n  discoveredAsins: asinList,\n  searchKeyword: config.searchKeyword,\n  entryType: 'keyword'\n} }];"
+        }
+      },
+      {
+        "id": "set-direct-asin",
+        "name": "Direct ASIN Entry",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          650,
+          400
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "entry",
+                "name": "entryType",
+                "value": "asin",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true
+        }
+      },
+      {
+        "id": "merge-entry",
+        "name": "Merge Entry Points",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          1090,
+          500
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "check-ai-analysis",
+        "name": "Run AI Analysis?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          3050,
+          500
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "ai-check",
+                "leftValue": "={{ $json.config?.runAiAnalysis }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "ai-market-analysis",
+        "name": "AI Market Analysis",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3250,
+          350
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "authentication": "none",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $json.config.openaiKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"model\": \"gpt-5.2\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an Amazon market analyst. Always respond with valid JSON only, no markdown.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this product data and provide a structured assessment.\\n\\n**Product Data:**\\n- ASIN: {{ $json.product.asin }}\\n- Title: {{ $json.product.title }}\\n- Brand: {{ $json.product.brand }}\\n- Category: {{ $json.product.rootCategory }}\\n- BSR: {{ $json.product.currentBSR }} (Growth 30d: {{ $json.product.bsrGrowth30d }}%)\\n- Price: ${{ $json.product.listPrice || $json.product.amazonPrice || $json.product.newPrice }}\\n- Rating: {{ $json.product.rating }} ({{ $json.product.reviewCount }} reviews)\\n- Monthly Sales: {{ $json.product.monthlySold }}\\n- Review Velocity: {{ $json.product.reviewVelocity }} reviews/day\\n- Days Listed: {{ $json.product.daysListed }}\\n- Variations: {{ $json.product.variationCount }}\\n- FBA Fee: ${{ $json.product.fbaFees?.pickAndPackFee }}\\n- Size Tier: {{ $json.product.sizeTier }}\\n\\nRespond with this exact JSON structure:\\n{\\n  \\\"market_opportunity_score\\\": <1-10>,\\n  \\\"risk_profile\\\": \\\"<High/Medium/Low>\\\",\\n  \\\"risk_factors\\\": [\\\"<factor1>\\\", \\\"<factor2>\\\"],\\n  \\\"is_consumable\\\": <true/false>,\\n  \\\"recession_proof_score\\\": <1-10>,\\n  \\\"competitive_intensity\\\": \\\"<High/Medium/Low>\\\",\\n  \\\"key_selling_points\\\": [\\\"<usp1>\\\", \\\"<usp2>\\\", \\\"<usp3>\\\"],\\n  \\\"differentiation_opportunities\\\": [\\\"<opp1>\\\", \\\"<opp2>\\\"],\\n  \\\"target_audience\\\": \\\"<description>\\\",\\n  \\\"pricing_assessment\\\": \\\"<Premium/Competitive/Value>\\\",\\n  \\\"entry_recommendation\\\": \\\"<Enter/Cautious/Avoid>\\\",\\n  \\\"reasoning\\\": \\\"<2-3 sentence summary>\\\"\\n}\"\n    }\n  ],\n  \"temperature\": 0.3,\n  \"max_completion_tokens\": 1500\n}",
+          "options": {}
+        }
+      },
+      {
+        "id": "parse-market-analysis",
+        "name": "Parse Market Analysis",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3450,
+          350
+        ],
+        "parameters": {
+          "jsCode": "// Parse OpenAI market analysis response\nconst items = $input.all();\nconst results = [];\n\n// Get the original data from Merge Reviews node\nconst mergeReviewsData = $('Merge Reviews').first().json;\nconst config = mergeReviewsData.config;\nconst product = mergeReviewsData.product;\nconst keywords = mergeReviewsData.keywords;\nconst reviews = mergeReviewsData.reviews;\n\nfor (const item of items) {\n  const data = item.json;\n  let marketAnalysis = null;\n  \n  try {\n    // OpenAI response structure: data.choices[0].message.content\n    const responseText = data.choices?.[0]?.message?.content || '';\n    const jsonMatch = responseText.match(/\\{[\\s\\S]*\\}/);\n    \n    if (jsonMatch) {\n      marketAnalysis = JSON.parse(jsonMatch[0]);\n    }\n  } catch (e) {\n    marketAnalysis = { error: 'Failed to parse AI response', raw: data.choices?.[0]?.message?.content?.substring(0, 500) };\n  }\n  \n  results.push({\n    json: {\n      config,\n      product,\n      keywords,\n      reviews,\n      marketAnalysis\n    }\n  });\n}\n\nreturn results;"
+        }
+      },
+      {
+        "id": "skip-ai",
+        "name": "Skip AI Analysis",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          3250,
+          650
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "skip-marker",
+                "name": "marketAnalysis",
+                "value": "={{ { skipped: true } }}",
+                "type": "object"
+              }
+            ]
+          },
+          "includeOtherFields": true
+        }
+      },
+      {
+        "id": "merge-ai",
+        "name": "Merge AI Results",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          3650,
+          500
+        ],
+        "parameters": {
+          "mode": "append",
+          "mergeByFields": {
+            "values": []
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "has-reviews-for-ai",
+        "name": "Has Reviews?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          3550,
+          350
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "hasReviewItems",
+                "leftValue": "={{ $json.reviews && $json.reviews.count > 0 }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "ai-review-analysis",
+        "name": "AI Review Analysis",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3750,
+          200
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "authentication": "none",
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $json.config.openaiKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ model: 'gpt-5.2', messages: [{ role: 'system', content: 'You are an Amazon review analyst. Always respond with valid JSON only, no markdown.' }, { role: 'user', content: 'Analyze these customer reviews and provide insights.\\n\\nProduct: ' + $json.product.title + '\\n\\nReviews: ' + JSON.stringify($json.reviews.items.slice(0, 10)) + '\\n\\nRespond with this exact JSON structure: { \"overall_sentiment\": \"<Positive/Mixed/Negative>\", \"sentiment_score\": <1-10>, \"top_pain_points\": [\"<pain1>\", \"<pain2>\"], \"praised_features\": [\"<feature1>\", \"<feature2>\"], \"feature_requests\": [\"<request1>\"], \"quality_issues\": [\"<issue1>\"], \"common_use_cases\": [\"<use1>\", \"<use2>\"], \"competitor_mentions\": [\"<competitor1>\"], \"key_insight\": \"<one sentence summary>\" }' }], temperature: 0.3, max_completion_tokens: 1500 }) }}"
+        }
+      },
+      {
+        "id": "parse-review-analysis",
+        "name": "Parse Review Analysis",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3950,
+          200
+        ],
+        "parameters": {
+          "jsCode": "// Parse OpenAI review analysis response\nconst items = $input.all();\nconst results = [];\n\n// Get the original data from Has Reviews? node which has marketAnalysis\nconst hasReviewsData = $('Has Reviews?').first().json;\nconst config = hasReviewsData.config;\nconst product = hasReviewsData.product;\nconst keywords = hasReviewsData.keywords;\nconst reviews = hasReviewsData.reviews;\nconst marketAnalysis = hasReviewsData.marketAnalysis;\n\nfor (const item of items) {\n  const data = item.json;\n  let reviewAnalysis = null;\n  \n  try {\n    const text = data.choices?.[0]?.message?.content || '';\n    const match = text.match(/\\{[\\s\\S]*\\}/);\n    if (match) reviewAnalysis = JSON.parse(match[0]);\n  } catch (e) {\n    reviewAnalysis = { error: 'Parse failed' };\n  }\n  \n  results.push({\n    json: {\n      config,\n      product,\n      keywords,\n      reviews,\n      marketAnalysis,\n      reviewAnalysis\n    }\n  });\n}\n\nreturn results;"
+        }
+      },
+      {
+        "id": "skip-review-ai",
+        "name": "Skip Review AI",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          3850,
+          500
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "skip-review",
+                "name": "reviewAnalysis",
+                "value": "={{ { skipped: true } }}",
+                "type": "object"
+              }
+            ]
+          },
+          "includeOtherFields": true
+        }
+      },
+      {
+        "id": "merge-review-ai",
+        "name": "Merge Review AI",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          4150,
+          350
+        ],
+        "parameters": {
+          "mode": "append",
+          "mergeByFields": {
+            "values": []
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "select-review-service",
+        "name": "Select Review Service",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2080,
+          400
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "hasBrightData",
+                "leftValue": "={{ $json.config.brightDataKey }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "bright-data-reviews",
+        "name": "Bright Data Reviews",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2300,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.brightdata.com/datasets/v3/trigger?dataset_id=gd_le8e811kzy4ggddlq&format=json",
+          "authentication": "none",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.config.brightDataKey }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify([{ url: 'https://www.amazon.com/dp/' + $json.config.asin + '/' }]) }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            },
+            "timeout": 120000
+          }
+        }
+      },
+      {
+        "id": "apify-reviews",
+        "name": "Apify Reviews",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2300,
+          500
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.apify.com/v2/acts/junglee~amazon-reviews-scraper/run-sync-get-dataset-items?token={{ $json.config.apifyToken }}",
+          "authentication": "none",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ productUrls: [{url: 'https://www.amazon.com/dp/' + $json.config.asin}], maxReviews: $json.config.maxReviews || 100 }) }}",
+          "options": {
+            "timeout": 300000
+          }
+        }
+      },
+      {
+        "id": "merge-review-services",
+        "name": "Merge Review Services",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.1,
+        "position": [
+          2520,
+          400
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "normalize-reviews",
+        "name": "Normalize Reviews",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2740,
+          400
+        ],
+        "parameters": {
+          "jsCode": "// Normalize reviews from Bright Data or Apify to common format\nconst mergeKwData = $('Merge KW').first().json;\nconst config = mergeKwData.config;\nconst product = mergeKwData.product;\nconst keywords = mergeKwData.keywords;\n\nconst apiResponse = $input.all().map(i => i.json);\nlet reviews = [];\nlet source = 'unknown';\n\nlet flatResponse = apiResponse.flat();\n\n// Detect Bright Data format (review_text field)\nif (flatResponse.length > 0 && flatResponse[0] && flatResponse[0].review_text) {\n  source = 'brightdata';\n  reviews = flatResponse.map(r => ({\n    id: r.review_id || '',\n    title: r.review_title || '',\n    text: r.review_text || '',\n    rating: r.rating || 0,\n    date: r.review_date || '',\n    verified: r.verified_purchase || false,\n    helpful: r.helpful_count || 0,\n    author: r.reviewer_name || ''\n  }));\n} \n// Detect Apify/junglee format (reviewTitle field)\nelse if (flatResponse.length > 0 && flatResponse[0] && flatResponse[0].reviewTitle) {\n  source = 'apify';\n  reviews = flatResponse.map(r => ({\n    id: r.reviewId || '',\n    title: r.reviewTitle || '',\n    text: r.reviewDescription || '',\n    rating: r.ratingScore || 0,\n    date: r.date || '',\n    verified: r.isVerified || false,\n    helpful: parseInt(r.reviewReaction) || 0,\n    author: r.userId || ''\n  }));\n}\n\nreturn [{\n  json: {\n    config,\n    product,\n    keywords,\n    reviews: {\n      source,\n      count: reviews.length,\n      items: reviews\n    }\n  }\n}];"
+        }
+      }
+    ],
+    "connections": {
+      "Research Trigger": {
+        "main": [
+          [
+            {
+              "node": "Set Config",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Config": {
+        "main": [
+          [
+            {
+              "node": "Detect Input Type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Detect Input Type": {
+        "main": [
+          [
+            {
+              "node": "Direct ASIN Entry",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Keepa Product Finder",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Direct ASIN Entry": {
+        "main": [
+          [
+            {
+              "node": "Merge Entry Points",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Keepa Product Finder": {
+        "main": [
+          [
+            {
+              "node": "Extract ASINs",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract ASINs": {
+        "main": [
+          [
+            {
+              "node": "Merge Entry Points",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge Entry Points": {
+        "main": [
+          [
+            {
+              "node": "1. Keepa Product API",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "1. Keepa Product API": {
+        "main": [
+          [
+            {
+              "node": "Transform Product",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transform Product": {
+        "main": [
+          [
+            {
+              "node": "Has Keywords?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Has Keywords?": {
+        "main": [
+          [
+            {
+              "node": "2. DataForSEO Keywords",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No Keywords",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "2. DataForSEO Keywords": {
+        "main": [
+          [
+            {
+              "node": "Transform Keywords",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transform Keywords": {
+        "main": [
+          [
+            {
+              "node": "Merge KW",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No Keywords": {
+        "main": [
+          [
+            {
+              "node": "Merge KW",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge KW": {
+        "main": [
+          [
+            {
+              "node": "Scrape Reviews?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Scrape Reviews?": {
+        "main": [
+          [
+            {
+              "node": "Select Review Service",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No Reviews",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Select Review Service": {
+        "main": [
+          [
+            {
+              "node": "Bright Data Reviews",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Apify Reviews",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Bright Data Reviews": {
+        "main": [
+          [
+            {
+              "node": "Merge Review Services",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Apify Reviews": {
+        "main": [
+          [
+            {
+              "node": "Merge Review Services",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge Review Services": {
+        "main": [
+          [
+            {
+              "node": "Normalize Reviews",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Reviews": {
+        "main": [
+          [
+            {
+              "node": "Merge Reviews",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No Reviews": {
+        "main": [
+          [
+            {
+              "node": "Merge Reviews",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge Reviews": {
+        "main": [
+          [
+            {
+              "node": "Run AI Analysis?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run AI Analysis?": {
+        "main": [
+          [
+            {
+              "node": "AI Market Analysis",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Skip AI Analysis",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Market Analysis": {
+        "main": [
+          [
+            {
+              "node": "Parse Market Analysis",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Market Analysis": {
+        "main": [
+          [
+            {
+              "node": "Has Reviews?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Has Reviews?": {
+        "main": [
+          [
+            {
+              "node": "AI Review Analysis",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Skip Review AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Review Analysis": {
+        "main": [
+          [
+            {
+              "node": "Parse Review Analysis",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Review Analysis": {
+        "main": [
+          [
+            {
+              "node": "Merge Review AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Skip Review AI": {
+        "main": [
+          [
+            {
+              "node": "Merge Review AI",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Skip AI Analysis": {
+        "main": [
+          [
+            {
+              "node": "Merge AI Results",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge Review AI": {
+        "main": [
+          [
+            {
+              "node": "Merge AI Results",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge AI Results": {
+        "main": [
+          [
+            {
+              "node": "Save to Supabase?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save to Supabase?": {
+        "main": [
+          [
+            {
+              "node": "Prepare Supabase Data",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Skip Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Supabase Data": {
+        "main": [
+          [
+            {
+              "node": "Save Product",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Format Supabase Result",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Save Keywords",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Save Summary",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Save Reviews",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Supabase Result": {
+        "main": [
+          [
+            {
+              "node": "Final Output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Skip Supabase": {
+        "main": [
+          [
+            {
+              "node": "Final Output",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Jeremy Hamilton",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-01-15T09:15:20.627Z",
+        "id": 130,
+        "workflowId": "JHBsr7jS9CMs45WU",
+        "versionId": "d6973e82-5771-4982-8979-6db80d78c6be",
+        "event": "activated",
+        "userId": "75e56a99-ffa6-49af-8906-2f08adc1738b"
+      }
+    ]
+  }
+}

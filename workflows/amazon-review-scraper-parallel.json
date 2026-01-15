@@ -1,0 +1,8 @@
+{
+  "id": "24Hk1aZrLlg6QA93",
+  "name": "Amazon Review Scraper - Parallel",
+  "description": "Parallel batch processing for Amazon review scraping",
+  "active": false,
+  "webhookPath": "review-scraper",
+  "nodeCount": 7
+}
