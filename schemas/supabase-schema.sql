@@ -252,7 +252,56 @@ CREATE TABLE IF NOT EXISTS amazon_products (
   var_median_reviews INTEGER,
   var_avg_listing_age_days INTEGER,
   var_median_listing_age_days INTEGER,
-  var_best_variation JSONB
+  var_best_variation JSONB,
+
+  -- Social Media Analysis (Scrape Creators API)
+  social_media_analysis JSONB,
+  sm_instagram_handle TEXT,
+  sm_instagram_followers INTEGER,
+  sm_instagram_following INTEGER,
+  sm_instagram_posts INTEGER,
+  sm_instagram_bio TEXT,
+  sm_instagram_website TEXT,
+  sm_tiktok_handle TEXT,
+  sm_tiktok_followers INTEGER,
+  sm_tiktok_following INTEGER,
+  sm_tiktok_likes INTEGER,
+  sm_tiktok_videos INTEGER,
+  sm_tiktok_bio TEXT,
+  sm_youtube_channel TEXT,
+  sm_youtube_subscribers INTEGER,
+  sm_youtube_views INTEGER,
+  sm_youtube_videos INTEGER,
+  sm_youtube_description TEXT,
+  sm_facebook_page TEXT,
+  sm_facebook_followers INTEGER,
+  sm_facebook_likes INTEGER,
+  sm_twitter_handle TEXT,
+  sm_twitter_followers INTEGER,
+  sm_twitter_following INTEGER,
+  sm_twitter_tweets INTEGER,
+  sm_total_followers INTEGER,
+  sm_primary_platform TEXT,
+
+  -- Amazon Q&A Analysis
+  qa_analysis JSONB,
+  qa_total_questions INTEGER,
+  qa_answered_questions INTEGER,
+  qa_unanswered_questions INTEGER,
+  qa_avg_answers_per_question NUMERIC,
+  qa_top_questions JSONB,
+  qa_common_themes JSONB,
+
+  -- Competitor Advertising Analysis (Ad Library)
+  ad_analysis JSONB,
+  ad_facebook_active_ads INTEGER,
+  ad_facebook_total_ads INTEGER,
+  ad_facebook_ad_types JSONB,
+  ad_facebook_start_dates JSONB,
+  ad_google_active_ads INTEGER,
+  ad_google_ad_formats JSONB,
+  ad_competitor_ad_spend_estimate TEXT,
+  ad_top_ad_creatives JSONB
 );
 
 -- Amazon Keywords Table (DataForSEO keyword data)
@@ -307,6 +356,65 @@ CREATE TABLE IF NOT EXISTS amazon_review_summaries (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Amazon Q&A Table (Customer questions and answers)
+CREATE TABLE IF NOT EXISTS amazon_qa (
+  id BIGSERIAL PRIMARY KEY,
+  research_id TEXT,
+  asin TEXT,
+  question_id TEXT,
+  question TEXT,
+  answer TEXT,
+  answer_count INTEGER,
+  votes INTEGER,
+  asked_by TEXT,
+  answered_by TEXT,
+  is_seller_answer BOOLEAN,
+  asked_date TEXT,
+  answered_date TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Brand Social Media Profiles Table
+CREATE TABLE IF NOT EXISTS brand_social_profiles (
+  id BIGSERIAL PRIMARY KEY,
+  research_id TEXT,
+  asin TEXT,
+  brand TEXT,
+  platform TEXT, -- instagram, tiktok, youtube, facebook, twitter
+  handle TEXT,
+  profile_url TEXT,
+  followers INTEGER,
+  following INTEGER,
+  posts_count INTEGER,
+  total_likes INTEGER,
+  bio TEXT,
+  website TEXT,
+  verified BOOLEAN,
+  profile_image TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Competitor Ads Table (Facebook/Google Ad Library)
+CREATE TABLE IF NOT EXISTS competitor_ads (
+  id BIGSERIAL PRIMARY KEY,
+  research_id TEXT,
+  asin TEXT,
+  brand TEXT,
+  platform TEXT, -- facebook, google
+  ad_id TEXT,
+  ad_type TEXT,
+  status TEXT, -- active, inactive
+  start_date TEXT,
+  creative_url TEXT,
+  landing_page TEXT,
+  ad_text TEXT,
+  impressions_estimate TEXT,
+  spend_estimate TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -318,6 +426,14 @@ CREATE INDEX IF NOT EXISTS idx_amazon_keywords_research ON amazon_keywords(resea
 CREATE INDEX IF NOT EXISTS idx_amazon_reviews_asin ON amazon_reviews(asin);
 CREATE INDEX IF NOT EXISTS idx_amazon_reviews_research ON amazon_reviews(research_id);
 CREATE INDEX IF NOT EXISTS idx_amazon_review_summaries_asin ON amazon_review_summaries(asin);
+CREATE INDEX IF NOT EXISTS idx_amazon_qa_asin ON amazon_qa(asin);
+CREATE INDEX IF NOT EXISTS idx_amazon_qa_research ON amazon_qa(research_id);
+CREATE INDEX IF NOT EXISTS idx_brand_social_profiles_asin ON brand_social_profiles(asin);
+CREATE INDEX IF NOT EXISTS idx_brand_social_profiles_brand ON brand_social_profiles(brand);
+CREATE INDEX IF NOT EXISTS idx_brand_social_profiles_research ON brand_social_profiles(research_id);
+CREATE INDEX IF NOT EXISTS idx_competitor_ads_asin ON competitor_ads(asin);
+CREATE INDEX IF NOT EXISTS idx_competitor_ads_brand ON competitor_ads(brand);
+CREATE INDEX IF NOT EXISTS idx_competitor_ads_research ON competitor_ads(research_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY (Optional)

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-01-15T21:59:47.318Z",
+  "updatedAt": "2026-01-15T22:16:55.884Z",
   "createdAt": "2026-01-14T22:36:10.555Z",
   "id": "JHBsr7jS9CMs45WU",
   "name": "Amazon Research - Complete + Supabase",
@@ -77,7 +77,7 @@
               "id": "config-sb-url",
               "name": "config.sbUrl",
               "type": "string",
-              "value": "={{ $json.body.sbUrl || 'https://ymrkvhoiuaajlxleswdl.supabase.co' }}"
+              "value": "={{ $json.body.sbUrl || 'https://<SUPABASE_PROJECT_ID>.supabase.co' }}"
             },
             {
               "id": "config-sb-key",
@@ -96,6 +96,12 @@
               "name": "config.brightdataKey",
               "type": "string",
               "value": "={{ $json.body.brightdataKey || '' }}"
+            },
+            {
+              "id": "config-scrapecreators",
+              "name": "config.scrapeCreatorsKey",
+              "type": "string",
+              "value": "={{ $json.body.scrapeCreatorsKey || '' }}"
             },
             {
               "id": "config-save-sb",
@@ -132,6 +138,24 @@
               "name": "config.analyzeVariations",
               "type": "boolean",
               "value": "={{ $json.body.analyzeVariations ?? true }}"
+            },
+            {
+              "id": "config-run-social",
+              "name": "config.runSocialMedia",
+              "type": "boolean",
+              "value": "={{ $json.body.runSocialMedia ?? false }}"
+            },
+            {
+              "id": "config-run-ads",
+              "name": "config.runAdAnalysis",
+              "type": "boolean",
+              "value": "={{ $json.body.runAdAnalysis ?? false }}"
+            },
+            {
+              "id": "config-run-qa",
+              "name": "config.runQAAnalysis",
+              "type": "boolean",
+              "value": "={{ $json.body.runQAAnalysis ?? false }}"
             }
           ]
         }
@@ -463,7 +487,7 @@
         400
       ],
       "parameters": {
-        "jsCode": "// Prepare data for Supabase tables with FBA, SERP, and Variation analysis\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const product = data.product || {};\n  const keywords = data.keywords || [];\n  const reviews = data.reviews || [];\n  const reviewSummary = data.review_summary || {};\n  const marketAnalysis = data.market_analysis || {};\n  const reviewAnalysis = data.review_analysis || {};\n  const fbaAnalysis = data.fba_analysis || {};\n  const serpAnalysis = data.serp_analysis || {};\n  const variationAnalysis = data.variation_analysis || {};\n  const config = data.config || {};\n  \n  const researchId = `${product.asin || data.asin}_${Date.now()}`;\n  \n  // Product record with all analysis fields\n  const productRecord = {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    parent_asin: product.parent_asin,\n    upc: product.upc,\n    ean: product.ean,\n    title: product.title,\n    description: product.description,\n    features: product.features,\n    brand: product.brand,\n    manufacturer: product.manufacturer,\n    root_category: product.root_category,\n    category_tree: product.category_tree,\n    current_bsr: product.current_bsr,\n    sales_rank_reference: product.sales_rank_reference,\n    amazon_price: product.amazon_price,\n    new_price: product.new_price,\n    buy_box_price: product.buy_box_price,\n    monthly_sold: product.monthly_sold,\n    rating: product.rating,\n    review_count: product.review_count,\n    variation_count: product.variation_count,\n    \n    // Package dimensions\n    package_weight_grams: product.package_weight_grams,\n    package_height_mm: product.package_height_mm,\n    package_length_mm: product.package_length_mm,\n    package_width_mm: product.package_width_mm,\n    \n    // FBA Analysis\n    fba_fees: fbaAnalysis,\n    size_tier: fbaAnalysis.size_tier,\n    dim_weight_oz: fbaAnalysis.dim_weight_oz,\n    remaining_weight_oz: fbaAnalysis.remaining_weight_oz,\n    remaining_weight_g: fbaAnalysis.remaining_weight_g,\n    \n    // SERP Analysis\n    serp_position: serpAnalysis.product_position,\n    serp_on_page_one: serpAnalysis.on_page_one,\n    serp_p1_competitors: serpAnalysis.p1_competitor_count,\n    serp_p1_avg_rating: serpAnalysis.p1_avg_rating,\n    serp_p1_avg_reviews: serpAnalysis.p1_avg_reviews,\n    serp_analysis: serpAnalysis,\n    \n    // Variation Analysis\n    variation_analysis: variationAnalysis,\n    var_sum_sales: variationAnalysis.sum_monthly_sales,\n    var_sum_revenue: variationAnalysis.sum_monthly_revenue,\n    var_median_price: variationAnalysis.median_price,\n    var_median_rating: variationAnalysis.median_rating,\n    \n    // AI Analysis\n    market_analysis: marketAnalysis,\n    review_analysis: reviewAnalysis,\n    ai_opportunity_score: marketAnalysis.opportunity_score,\n    ai_risk_profile: marketAnalysis.risk_profile,\n    ai_recession_proof_score: marketAnalysis.recession_proof_score,\n    ai_competitive_intensity: marketAnalysis.competitive_intensity,\n    ai_is_consumable: marketAnalysis.is_consumable,\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_sentiment_score: reviewAnalysis.sentiment_score,\n    \n    // Timestamps\n    listed_since: product.listed_since,\n    url: product.url,\n    image_url: product.image_url\n  };\n  \n  // Keyword records\n  const kwRecs = keywords.map(kw => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    keyword: kw.keyword,\n    search_volume: kw.search_volume,\n    competition: kw.competition,\n    cpc: kw.cpc\n  }));\n  \n  // Review records\n  const revRecs = reviews.map((rev, idx) => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    review_id: rev.id || `rev_${idx}`,\n    rating: rev.rating,\n    title: rev.title,\n    body: rev.text || rev.body,\n    helpful_votes: rev.helpful_votes || 0,\n    verified_purchase: rev.verified_purchase,\n    review_date: rev.date,\n    has_images: rev.has_images || false,\n    has_videos: rev.has_videos || false\n  }));\n  \n  // Review summary record\n  const summaryRec = reviews.length > 0 ? {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    total_reviews: reviews.length,\n    avg_rating: reviewSummary.avg_rating || (reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length),\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_pain_points: reviewAnalysis.pain_points,\n    ai_praised_features: reviewAnalysis.praised_features,\n    ai_key_insight: reviewAnalysis.key_insight\n  } : null;\n  \n  results.push({\n    json: {\n      config,\n      researchId,\n      productRecord,\n      kwRecs,\n      revRecs,\n      summaryRec,\n      counts: {\n        keywords: kwRecs.length,\n        reviews: revRecs.length,\n        hasSummary: !!summaryRec\n      }\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "// Prepare data for Supabase tables with all analysis fields\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const product = data.product || {};\n  const keywords = data.keywords || [];\n  const reviews = data.reviews || [];\n  const reviewSummary = data.review_summary || {};\n  const marketAnalysis = data.market_analysis || {};\n  const reviewAnalysis = data.review_analysis || {};\n  const fbaAnalysis = data.fba_analysis || {};\n  const serpAnalysis = data.serp_analysis || {};\n  const variationAnalysis = data.variation_analysis || {};\n  const socialMedia = data.socialMedia || {};\n  const qaAnalysis = data.qaAnalysis || {};\n  const adAnalysis = data.adAnalysis || {};\n  const questions = data.questions || [];\n  const config = data.config || {};\n  \n  const researchId = `${product.asin || data.asin}_${Date.now()}`;\n  \n  // Product record with all analysis fields\n  const productRecord = {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    parent_asin: product.parent_asin,\n    upc: product.upc,\n    ean: product.ean,\n    title: product.title,\n    description: product.description,\n    features: product.features,\n    brand: product.brand,\n    manufacturer: product.manufacturer,\n    root_category: product.root_category,\n    category_tree: product.category_tree,\n    current_bsr: product.current_bsr,\n    sales_rank_reference: product.sales_rank_reference,\n    amazon_price: product.amazon_price,\n    new_price: product.new_price,\n    buy_box_price: product.buy_box_price,\n    monthly_sold: product.monthly_sold,\n    rating: product.rating,\n    review_count: product.review_count,\n    variation_count: product.variation_count,\n    \n    // Package dimensions\n    package_weight_grams: product.package_weight_grams,\n    package_height_mm: product.package_height_mm,\n    package_length_mm: product.package_length_mm,\n    package_width_mm: product.package_width_mm,\n    \n    // FBA Analysis\n    fba_fees: fbaAnalysis,\n    size_tier: fbaAnalysis.size_tier,\n    dim_weight_oz: fbaAnalysis.dim_weight_oz,\n    remaining_weight_oz: fbaAnalysis.remaining_weight_oz,\n    remaining_weight_g: fbaAnalysis.remaining_weight_g,\n    \n    // SERP Analysis\n    serp_analysis: serpAnalysis,\n    serp_position: serpAnalysis.product_position,\n    serp_on_page_one: serpAnalysis.on_page_one,\n    serp_p1_competitors: serpAnalysis.p1_competitor_count,\n    serp_p1_avg_rating: serpAnalysis.p1_avg_rating,\n    serp_p1_avg_reviews: serpAnalysis.p1_avg_reviews,\n    \n    // Variation Analysis\n    variation_analysis: variationAnalysis,\n    var_sum_sales: variationAnalysis.sum_monthly_sales,\n    var_sum_revenue: variationAnalysis.sum_monthly_revenue,\n    var_median_price: variationAnalysis.median_price,\n    var_median_rating: variationAnalysis.median_rating,\n    \n    // Social Media Analysis (NEW)\n    social_media_analysis: socialMedia.skipped ? null : socialMedia,\n    sm_instagram_handle: socialMedia.instagram?.handle,\n    sm_instagram_followers: socialMedia.instagram?.followers,\n    sm_instagram_following: socialMedia.instagram?.following,\n    sm_instagram_posts: socialMedia.instagram?.posts,\n    sm_instagram_bio: socialMedia.instagram?.bio,\n    sm_tiktok_handle: socialMedia.tiktok?.handle,\n    sm_tiktok_followers: socialMedia.tiktok?.followers,\n    sm_tiktok_likes: socialMedia.tiktok?.likes,\n    sm_tiktok_videos: socialMedia.tiktok?.videos,\n    sm_youtube_channel: socialMedia.youtube?.channel,\n    sm_youtube_subscribers: socialMedia.youtube?.subscribers,\n    sm_youtube_views: socialMedia.youtube?.views,\n    sm_total_followers: socialMedia.totalFollowers,\n    sm_primary_platform: socialMedia.primaryPlatform,\n    \n    // Q&A Analysis (NEW)\n    qa_analysis: qaAnalysis.skipped ? null : qaAnalysis,\n    qa_total_questions: qaAnalysis.totalQuestions,\n    qa_answered_questions: qaAnalysis.answeredQuestions,\n    qa_unanswered_questions: qaAnalysis.unansweredQuestions,\n    qa_avg_answers_per_question: qaAnalysis.avgAnswersPerQuestion,\n    qa_top_questions: qaAnalysis.topQuestions,\n    qa_common_themes: qaAnalysis.commonThemes,\n    \n    // Ad Analysis (NEW)\n    ad_analysis: adAnalysis.skipped ? null : adAnalysis,\n    ad_facebook_active_ads: adAnalysis.facebook?.activeAds,\n    ad_facebook_total_ads: adAnalysis.facebook?.totalAds,\n    ad_facebook_ad_types: adAnalysis.facebook?.adTypes,\n    ad_google_active_ads: adAnalysis.google?.advertisersFound,\n    ad_competitor_ad_spend_estimate: adAnalysis.spendEstimate,\n    ad_top_ad_creatives: adAnalysis.facebook?.topCreatives,\n    \n    // AI Analysis\n    market_analysis: marketAnalysis,\n    review_analysis: reviewAnalysis,\n    ai_opportunity_score: marketAnalysis.opportunity_score,\n    ai_risk_profile: marketAnalysis.risk_profile,\n    ai_recession_proof_score: marketAnalysis.recession_proof_score,\n    ai_competitive_intensity: marketAnalysis.competitive_intensity,\n    ai_is_consumable: marketAnalysis.is_consumable,\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_sentiment_score: reviewAnalysis.sentiment_score,\n    \n    // Timestamps\n    listed_since: product.listed_since,\n    url: product.url,\n    image_url: product.image_url\n  };\n  \n  // Keyword records\n  const kwRecs = keywords.map(kw => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    keyword: kw.keyword,\n    search_volume: kw.search_volume,\n    competition: kw.competition,\n    cpc: kw.cpc\n  }));\n  \n  // Review records\n  const revRecs = reviews.map((rev, idx) => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    review_id: rev.id || `rev_${idx}`,\n    rating: rev.rating,\n    title: rev.title,\n    body: rev.text || rev.body,\n    helpful_votes: rev.helpful_votes || 0,\n    verified_purchase: rev.verified_purchase,\n    review_date: rev.date,\n    has_images: rev.has_images || false,\n    has_videos: rev.has_videos || false\n  }));\n  \n  // Q&A records (NEW)\n  const qaRecs = questions.map((q, idx) => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    question_id: q.id || `qa_${idx}`,\n    question: q.question || q.text,\n    answer: q.answer || q.answers?.[0]?.text,\n    answer_count: q.answers?.length || (q.answer ? 1 : 0),\n    votes: q.votes || q.helpful_votes || 0,\n    asked_by: q.asked_by || q.author,\n    answered_by: q.answered_by || q.answers?.[0]?.author,\n    is_seller_answer: q.is_seller_answer || q.answers?.[0]?.is_seller || false\n  }));\n  \n  // Review summary record\n  const summaryRec = reviews.length > 0 ? {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    total_reviews: reviews.length,\n    avg_rating: reviewSummary.avg_rating || (reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length),\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_pain_points: reviewAnalysis.pain_points,\n    ai_praised_features: reviewAnalysis.praised_features,\n    ai_key_insight: reviewAnalysis.key_insight\n  } : null;\n  \n  // Social media profile records (NEW)\n  const socialRecs = [];\n  if (socialMedia && !socialMedia.skipped) {\n    if (socialMedia.instagram?.handle) {\n      socialRecs.push({\n        research_id: researchId,\n        asin: product.asin || data.asin,\n        brand: product.brand,\n        platform: 'instagram',\n        handle: socialMedia.instagram.handle,\n        followers: socialMedia.instagram.followers,\n        following: socialMedia.instagram.following,\n        posts_count: socialMedia.instagram.posts,\n        bio: socialMedia.instagram.bio,\n        website: socialMedia.instagram.website,\n        verified: socialMedia.instagram.verified,\n        profile_image: socialMedia.instagram.profileImage\n      });\n    }\n    if (socialMedia.tiktok?.handle) {\n      socialRecs.push({\n        research_id: researchId,\n        asin: product.asin || data.asin,\n        brand: product.brand,\n        platform: 'tiktok',\n        handle: socialMedia.tiktok.handle,\n        followers: socialMedia.tiktok.followers,\n        following: socialMedia.tiktok.following,\n        total_likes: socialMedia.tiktok.likes,\n        posts_count: socialMedia.tiktok.videos,\n        bio: socialMedia.tiktok.bio,\n        verified: socialMedia.tiktok.verified\n      });\n    }\n    if (socialMedia.youtube?.channel) {\n      socialRecs.push({\n        research_id: researchId,\n        asin: product.asin || data.asin,\n        brand: product.brand,\n        platform: 'youtube',\n        handle: socialMedia.youtube.channel,\n        followers: socialMedia.youtube.subscribers,\n        posts_count: socialMedia.youtube.videos,\n        bio: socialMedia.youtube.description\n      });\n    }\n  }\n  \n  results.push({\n    json: {\n      config,\n      researchId,\n      productRecord,\n      kwRecs,\n      revRecs,\n      qaRecs,\n      socialRecs,\n      summaryRec,\n      counts: {\n        keywords: kwRecs.length,\n        reviews: revRecs.length,\n        questions: qaRecs.length,\n        socialProfiles: socialRecs.length,\n        hasSummary: !!summaryRec\n      }\n    }\n  });\n}\n\nreturn results;"
       }
     },
     {
@@ -1425,6 +1449,543 @@
       "parameters": {
         "mode": "append"
       }
+    },
+    {
+      "id": "check-social",
+      "name": "Run Social Media?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3180,
+        750
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "social-check",
+              "leftValue": "={{ $('Set Config').item.json.config.runSocialMedia }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "scrape-instagram",
+      "name": "Scrape Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        650
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/instagram/profile?handle={{ $json.product.brand.toLowerCase().replace(/[^a-z0-9]/g, '') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "scrape-tiktok",
+      "name": "Scrape TikTok",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        800
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/tiktok/profile?handle={{ $json.product.brand.toLowerCase().replace(/[^a-z0-9]/g, '') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "scrape-youtube",
+      "name": "Scrape YouTube",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        950
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/youtube/channel?handle={{ $json.product.brand.toLowerCase().replace(/[^a-z0-9]/g, '') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "aggregate-social",
+      "name": "Aggregate Social Media",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3620,
+        800
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Aggregate social media data from Instagram, TikTok, YouTube\nconst items = $input.all();\n\n// Get the original product data from previous flow\nconst originalData = $('Run Social Media?').first().json;\n\n// Parse responses (some may have failed)\nconst instagram = items[0]?.json || {};\nconst tiktok = items[1]?.json || {};\nconst youtube = items[2]?.json || {};\n\nconst socialMedia = {\n  instagram: {\n    handle: instagram.username || null,\n    followers: instagram.edge_followed_by?.count || instagram.follower_count || 0,\n    following: instagram.edge_follow?.count || instagram.following_count || 0,\n    posts: instagram.edge_owner_to_timeline_media?.count || instagram.media_count || 0,\n    bio: instagram.biography || null,\n    website: instagram.external_url || null,\n    verified: instagram.is_verified || false,\n    profileImage: instagram.profile_pic_url || null\n  },\n  tiktok: {\n    handle: tiktok.uniqueId || tiktok.username || null,\n    followers: tiktok.followerCount || tiktok.fans || 0,\n    following: tiktok.followingCount || 0,\n    likes: tiktok.heartCount || tiktok.heart || 0,\n    videos: tiktok.videoCount || 0,\n    bio: tiktok.signature || tiktok.bio || null,\n    verified: tiktok.verified || false\n  },\n  youtube: {\n    channel: youtube.title || youtube.name || null,\n    subscribers: youtube.subscriberCount || youtube.subscriber_count || 0,\n    views: youtube.viewCount || youtube.view_count || 0,\n    videos: youtube.videoCount || youtube.video_count || 0,\n    description: youtube.description || null\n  }\n};\n\n// Calculate totals\nconst totalFollowers = \n  socialMedia.instagram.followers + \n  socialMedia.tiktok.followers + \n  socialMedia.youtube.subscribers;\n\n// Determine primary platform\nlet primaryPlatform = 'none';\nconst platforms = [\n  { name: 'instagram', count: socialMedia.instagram.followers },\n  { name: 'tiktok', count: socialMedia.tiktok.followers },\n  { name: 'youtube', count: socialMedia.youtube.subscribers }\n];\nconst maxPlatform = platforms.reduce((a, b) => a.count > b.count ? a : b);\nif (maxPlatform.count > 0) primaryPlatform = maxPlatform.name;\n\nreturn [{\n  json: {\n    ...originalData,\n    socialMedia: {\n      ...socialMedia,\n      totalFollowers,\n      primaryPlatform,\n      scrapedAt: new Date().toISOString()\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "skip-social",
+      "name": "No Social Media",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3400,
+        1100
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-social-flag",
+              "name": "socialMedia",
+              "type": "object",
+              "value": "={{ { skipped: true } }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "merge-social",
+      "name": "Merge Social Media",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3840,
+        850
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "check-qa",
+      "name": "Run Q&A Analysis?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4060,
+        750
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "qa-check",
+              "leftValue": "={{ $('Set Config').item.json.config.runQAAnalysis }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "brightdata-qa",
+      "name": "Bright Data Q&A",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4280,
+        650
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brightdata.com/datasets/v3/trigger",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Set Config').item.json.config.brightdataKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "=https://www.amazon.com/ask/questions/asin/{{ $('Set Config').item.json.asin }}"
+            },
+            {
+              "name": "dataset_id",
+              "value": "gd_lfqkr8wm13ixtbd8f5"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "process-qa",
+      "name": "Process Q&A",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4500,
+        650
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Process Amazon Q&A data from Bright Data\nconst items = $input.all();\nconst originalData = $('Run Q&A Analysis?').first().json;\nconst qaResponse = items[0]?.json || {};\n\n// Parse Q&A data\nconst questions = qaResponse.questions || qaResponse.data || [];\n\nconst qaAnalysis = {\n  totalQuestions: questions.length,\n  answeredQuestions: questions.filter(q => q.answer || q.answers?.length > 0).length,\n  unansweredQuestions: questions.filter(q => !q.answer && (!q.answers || q.answers.length === 0)).length,\n  avgAnswersPerQuestion: questions.length > 0 \n    ? questions.reduce((sum, q) => sum + (q.answers?.length || (q.answer ? 1 : 0)), 0) / questions.length \n    : 0,\n  topQuestions: questions.slice(0, 10).map(q => ({\n    question: q.question || q.text,\n    answer: q.answer || q.answers?.[0]?.text || null,\n    votes: q.votes || q.helpful_votes || 0,\n    askedBy: q.asked_by || q.author || null,\n    answeredBy: q.answered_by || q.answers?.[0]?.author || null,\n    isSellerAnswer: q.is_seller_answer || q.answers?.[0]?.is_seller || false\n  })),\n  // Extract common themes from questions\n  commonThemes: extractThemes(questions)\n};\n\nfunction extractThemes(questions) {\n  const themes = {};\n  const keywords = ['size', 'fit', 'quality', 'battery', 'warranty', 'return', 'shipping', \n                    'compatible', 'work with', 'how to', 'difference', 'vs', 'better'];\n  \n  questions.forEach(q => {\n    const text = (q.question || q.text || '').toLowerCase();\n    keywords.forEach(kw => {\n      if (text.includes(kw)) {\n        themes[kw] = (themes[kw] || 0) + 1;\n      }\n    });\n  });\n  \n  return Object.entries(themes)\n    .sort((a, b) => b[1] - a[1])\n    .slice(0, 5)\n    .map(([theme, count]) => ({ theme, count }));\n}\n\nreturn [{\n  json: {\n    ...originalData,\n    qaAnalysis,\n    questions: questions.slice(0, 20) // Store top 20 questions\n  }\n}];"
+      }
+    },
+    {
+      "id": "skip-qa",
+      "name": "No Q&A",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4280,
+        900
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-qa-flag",
+              "name": "qaAnalysis",
+              "type": "object",
+              "value": "={{ { skipped: true } }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "merge-qa",
+      "name": "Merge Q&A",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4720,
+        750
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "check-ads",
+      "name": "Run Ad Analysis?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4940,
+        750
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ads-check",
+              "leftValue": "={{ $('Set Config').item.json.config.runAdAnalysis }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fb-ad-library",
+      "name": "Facebook Ad Library",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5160,
+        650
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/meta-ad-library/search?query={{ encodeURIComponent($json.product.brand) }}&country=US&limit=20",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "google-ads",
+      "name": "Google Ads Transparency",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5160,
+        850
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/google/advertiser/search?query={{ encodeURIComponent($json.product.brand) }}&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "process-ads",
+      "name": "Process Ads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5380,
+        750
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Process advertising data from Facebook Ad Library and Google Ads\nconst items = $input.all();\nconst originalData = $('Run Ad Analysis?').first().json;\n\nconst fbAds = items[0]?.json?.data || items[0]?.json?.ads || [];\nconst googleAds = items[1]?.json?.data || items[1]?.json?.advertisers || [];\n\n// Process Facebook ads\nconst fbAnalysis = {\n  activeAds: fbAds.filter(ad => ad.is_active || ad.status === 'active').length,\n  totalAds: fbAds.length,\n  adTypes: countAdTypes(fbAds),\n  platforms: countPlatforms(fbAds),\n  topCreatives: fbAds.slice(0, 5).map(ad => ({\n    id: ad.id || ad.ad_id,\n    type: ad.ad_type || ad.media_type || 'unknown',\n    startDate: ad.start_date || ad.ad_delivery_start_time,\n    creative: ad.ad_creative_link_captions?.[0] || ad.body_text || null,\n    landingPage: ad.ad_creative_link_destinations?.[0] || ad.link_url || null,\n    imageUrl: ad.ad_snapshot_url || ad.image_url || null\n  }))\n};\n\n// Process Google ads\nconst googleAnalysis = {\n  advertisersFound: googleAds.length,\n  adFormats: googleAds.reduce((acc, adv) => {\n    (adv.ad_formats || []).forEach(f => {\n      acc[f] = (acc[f] || 0) + 1;\n    });\n    return acc;\n  }, {}),\n  topAdvertisers: googleAds.slice(0, 3).map(adv => ({\n    name: adv.advertiser_name || adv.name,\n    id: adv.advertiser_id || adv.id,\n    verificationStatus: adv.verification_status || null\n  }))\n};\n\nfunction countAdTypes(ads) {\n  return ads.reduce((acc, ad) => {\n    const type = ad.ad_type || ad.media_type || 'other';\n    acc[type] = (acc[type] || 0) + 1;\n    return acc;\n  }, {});\n}\n\nfunction countPlatforms(ads) {\n  return ads.reduce((acc, ad) => {\n    (ad.publisher_platforms || []).forEach(p => {\n      acc[p] = (acc[p] || 0) + 1;\n    });\n    return acc;\n  }, {});\n}\n\n// Estimate ad spend based on number of active ads\nlet spendEstimate = 'unknown';\nif (fbAnalysis.activeAds > 50) spendEstimate = 'high ($10k+/month)';\nelse if (fbAnalysis.activeAds > 20) spendEstimate = 'medium ($2k-$10k/month)';\nelse if (fbAnalysis.activeAds > 5) spendEstimate = 'low ($500-$2k/month)';\nelse if (fbAnalysis.activeAds > 0) spendEstimate = 'minimal (<$500/month)';\nelse spendEstimate = 'none detected';\n\nreturn [{\n  json: {\n    ...originalData,\n    adAnalysis: {\n      facebook: fbAnalysis,\n      google: googleAnalysis,\n      spendEstimate,\n      scrapedAt: new Date().toISOString()\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "skip-ads",
+      "name": "No Ad Analysis",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5160,
+        1000
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-ads-flag",
+              "name": "adAnalysis",
+              "type": "object",
+              "value": "={{ { skipped: true } }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "merge-ads",
+      "name": "Merge Ads",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        5600,
+        850
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "save-qa",
+      "name": "Save Q&A",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4060,
+        450
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.sbUrl }}/rest/v1/amazon_qa",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.config.sbKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.config.sbKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.qaRecs }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "save-social",
+      "name": "Save Social Profiles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4060,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.sbUrl }}/rest/v1/brand_social_profiles",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.config.sbKey }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.config.sbKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.socialRecs }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -1680,7 +2241,7 @@
       "main": [
         [
           {
-            "node": "Run AI Analysis?",
+            "node": "Run Social Media?",
             "type": "main",
             "index": 0
           }
@@ -1854,6 +2415,16 @@
           },
           {
             "node": "Save Reviews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Q&A",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Social Profiles",
             "type": "main",
             "index": 0
           }
@@ -2060,6 +2631,240 @@
           }
         ]
       ]
+    },
+    "Run Social Media?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Instagram",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape TikTok",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Instagram": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape TikTok": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape YouTube": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Social Media": {
+      "main": [
+        [
+          {
+            "node": "Merge Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Social Media": {
+      "main": [
+        [
+          {
+            "node": "Merge Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Social Media": {
+      "main": [
+        [
+          {
+            "node": "Run Q&A Analysis?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Q&A Analysis?": {
+      "main": [
+        [
+          {
+            "node": "Bright Data Q&A",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Q&A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bright Data Q&A": {
+      "main": [
+        [
+          {
+            "node": "Process Q&A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Q&A": {
+      "main": [
+        [
+          {
+            "node": "Merge Q&A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Q&A": {
+      "main": [
+        [
+          {
+            "node": "Merge Q&A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Q&A": {
+      "main": [
+        [
+          {
+            "node": "Run Ad Analysis?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Ad Analysis?": {
+      "main": [
+        [
+          {
+            "node": "Facebook Ad Library",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Ads Transparency",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Ad Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook Ad Library": {
+      "main": [
+        [
+          {
+            "node": "Process Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Ads Transparency": {
+      "main": [
+        [
+          {
+            "node": "Process Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Ads": {
+      "main": [
+        [
+          {
+            "node": "Merge Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Ad Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Ads": {
+      "main": [
+        [
+          {
+            "node": "Run AI Analysis?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -2070,9 +2875,9 @@
   "staticData": null,
   "meta": null,
   "pinData": null,
-  "versionId": "1dd40a9d-78eb-46a8-8f92-11cb53741e5e",
-  "activeVersionId": "1dd40a9d-78eb-46a8-8f92-11cb53741e5e",
-  "versionCounter": 218,
+  "versionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
+  "activeVersionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
+  "versionCounter": 236,
   "triggerCount": 1,
   "shared": [
     {
@@ -2134,9 +2939,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-01-15T21:59:47.327Z",
-    "createdAt": "2026-01-15T21:59:47.327Z",
-    "versionId": "1dd40a9d-78eb-46a8-8f92-11cb53741e5e",
+    "updatedAt": "2026-01-15T22:16:55.890Z",
+    "createdAt": "2026-01-15T22:16:55.890Z",
+    "versionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
     "workflowId": "JHBsr7jS9CMs45WU",
     "nodes": [
       {
@@ -2209,7 +3014,7 @@
                 "id": "config-sb-url",
                 "name": "config.sbUrl",
                 "type": "string",
-                "value": "={{ $json.body.sbUrl || 'https://ymrkvhoiuaajlxleswdl.supabase.co' }}"
+                "value": "={{ $json.body.sbUrl || 'https://<SUPABASE_PROJECT_ID>.supabase.co' }}"
               },
               {
                 "id": "config-sb-key",
@@ -2228,6 +3033,12 @@
                 "name": "config.brightdataKey",
                 "type": "string",
                 "value": "={{ $json.body.brightdataKey || '' }}"
+              },
+              {
+                "id": "config-scrapecreators",
+                "name": "config.scrapeCreatorsKey",
+                "type": "string",
+                "value": "={{ $json.body.scrapeCreatorsKey || '' }}"
               },
               {
                 "id": "config-save-sb",
@@ -2264,6 +3075,24 @@
                 "name": "config.analyzeVariations",
                 "type": "boolean",
                 "value": "={{ $json.body.analyzeVariations ?? true }}"
+              },
+              {
+                "id": "config-run-social",
+                "name": "config.runSocialMedia",
+                "type": "boolean",
+                "value": "={{ $json.body.runSocialMedia ?? false }}"
+              },
+              {
+                "id": "config-run-ads",
+                "name": "config.runAdAnalysis",
+                "type": "boolean",
+                "value": "={{ $json.body.runAdAnalysis ?? false }}"
+              },
+              {
+                "id": "config-run-qa",
+                "name": "config.runQAAnalysis",
+                "type": "boolean",
+                "value": "={{ $json.body.runQAAnalysis ?? false }}"
               }
             ]
           }
@@ -2595,7 +3424,7 @@
           400
         ],
         "parameters": {
-          "jsCode": "// Prepare data for Supabase tables with FBA, SERP, and Variation analysis\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const product = data.product || {};\n  const keywords = data.keywords || [];\n  const reviews = data.reviews || [];\n  const reviewSummary = data.review_summary || {};\n  const marketAnalysis = data.market_analysis || {};\n  const reviewAnalysis = data.review_analysis || {};\n  const fbaAnalysis = data.fba_analysis || {};\n  const serpAnalysis = data.serp_analysis || {};\n  const variationAnalysis = data.variation_analysis || {};\n  const config = data.config || {};\n  \n  const researchId = `${product.asin || data.asin}_${Date.now()}`;\n  \n  // Product record with all analysis fields\n  const productRecord = {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    parent_asin: product.parent_asin,\n    upc: product.upc,\n    ean: product.ean,\n    title: product.title,\n    description: product.description,\n    features: product.features,\n    brand: product.brand,\n    manufacturer: product.manufacturer,\n    root_category: product.root_category,\n    category_tree: product.category_tree,\n    current_bsr: product.current_bsr,\n    sales_rank_reference: product.sales_rank_reference,\n    amazon_price: product.amazon_price,\n    new_price: product.new_price,\n    buy_box_price: product.buy_box_price,\n    monthly_sold: product.monthly_sold,\n    rating: product.rating,\n    review_count: product.review_count,\n    variation_count: product.variation_count,\n    \n    // Package dimensions\n    package_weight_grams: product.package_weight_grams,\n    package_height_mm: product.package_height_mm,\n    package_length_mm: product.package_length_mm,\n    package_width_mm: product.package_width_mm,\n    \n    // FBA Analysis\n    fba_fees: fbaAnalysis,\n    size_tier: fbaAnalysis.size_tier,\n    dim_weight_oz: fbaAnalysis.dim_weight_oz,\n    remaining_weight_oz: fbaAnalysis.remaining_weight_oz,\n    remaining_weight_g: fbaAnalysis.remaining_weight_g,\n    \n    // SERP Analysis\n    serp_position: serpAnalysis.product_position,\n    serp_on_page_one: serpAnalysis.on_page_one,\n    serp_p1_competitors: serpAnalysis.p1_competitor_count,\n    serp_p1_avg_rating: serpAnalysis.p1_avg_rating,\n    serp_p1_avg_reviews: serpAnalysis.p1_avg_reviews,\n    serp_analysis: serpAnalysis,\n    \n    // Variation Analysis\n    variation_analysis: variationAnalysis,\n    var_sum_sales: variationAnalysis.sum_monthly_sales,\n    var_sum_revenue: variationAnalysis.sum_monthly_revenue,\n    var_median_price: variationAnalysis.median_price,\n    var_median_rating: variationAnalysis.median_rating,\n    \n    // AI Analysis\n    market_analysis: marketAnalysis,\n    review_analysis: reviewAnalysis,\n    ai_opportunity_score: marketAnalysis.opportunity_score,\n    ai_risk_profile: marketAnalysis.risk_profile,\n    ai_recession_proof_score: marketAnalysis.recession_proof_score,\n    ai_competitive_intensity: marketAnalysis.competitive_intensity,\n    ai_is_consumable: marketAnalysis.is_consumable,\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_sentiment_score: reviewAnalysis.sentiment_score,\n    \n    // Timestamps\n    listed_since: product.listed_since,\n    url: product.url,\n    image_url: product.image_url\n  };\n  \n  // Keyword records\n  const kwRecs = keywords.map(kw => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    keyword: kw.keyword,\n    search_volume: kw.search_volume,\n    competition: kw.competition,\n    cpc: kw.cpc\n  }));\n  \n  // Review records\n  const revRecs = reviews.map((rev, idx) => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    review_id: rev.id || `rev_${idx}`,\n    rating: rev.rating,\n    title: rev.title,\n    body: rev.text || rev.body,\n    helpful_votes: rev.helpful_votes || 0,\n    verified_purchase: rev.verified_purchase,\n    review_date: rev.date,\n    has_images: rev.has_images || false,\n    has_videos: rev.has_videos || false\n  }));\n  \n  // Review summary record\n  const summaryRec = reviews.length > 0 ? {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    total_reviews: reviews.length,\n    avg_rating: reviewSummary.avg_rating || (reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length),\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_pain_points: reviewAnalysis.pain_points,\n    ai_praised_features: reviewAnalysis.praised_features,\n    ai_key_insight: reviewAnalysis.key_insight\n  } : null;\n  \n  results.push({\n    json: {\n      config,\n      researchId,\n      productRecord,\n      kwRecs,\n      revRecs,\n      summaryRec,\n      counts: {\n        keywords: kwRecs.length,\n        reviews: revRecs.length,\n        hasSummary: !!summaryRec\n      }\n    }\n  });\n}\n\nreturn results;"
+          "jsCode": "// Prepare data for Supabase tables with all analysis fields\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const product = data.product || {};\n  const keywords = data.keywords || [];\n  const reviews = data.reviews || [];\n  const reviewSummary = data.review_summary || {};\n  const marketAnalysis = data.market_analysis || {};\n  const reviewAnalysis = data.review_analysis || {};\n  const fbaAnalysis = data.fba_analysis || {};\n  const serpAnalysis = data.serp_analysis || {};\n  const variationAnalysis = data.variation_analysis || {};\n  const socialMedia = data.socialMedia || {};\n  const qaAnalysis = data.qaAnalysis || {};\n  const adAnalysis = data.adAnalysis || {};\n  const questions = data.questions || [];\n  const config = data.config || {};\n  \n  const researchId = `${product.asin || data.asin}_${Date.now()}`;\n  \n  // Product record with all analysis fields\n  const productRecord = {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    parent_asin: product.parent_asin,\n    upc: product.upc,\n    ean: product.ean,\n    title: product.title,\n    description: product.description,\n    features: product.features,\n    brand: product.brand,\n    manufacturer: product.manufacturer,\n    root_category: product.root_category,\n    category_tree: product.category_tree,\n    current_bsr: product.current_bsr,\n    sales_rank_reference: product.sales_rank_reference,\n    amazon_price: product.amazon_price,\n    new_price: product.new_price,\n    buy_box_price: product.buy_box_price,\n    monthly_sold: product.monthly_sold,\n    rating: product.rating,\n    review_count: product.review_count,\n    variation_count: product.variation_count,\n    \n    // Package dimensions\n    package_weight_grams: product.package_weight_grams,\n    package_height_mm: product.package_height_mm,\n    package_length_mm: product.package_length_mm,\n    package_width_mm: product.package_width_mm,\n    \n    // FBA Analysis\n    fba_fees: fbaAnalysis,\n    size_tier: fbaAnalysis.size_tier,\n    dim_weight_oz: fbaAnalysis.dim_weight_oz,\n    remaining_weight_oz: fbaAnalysis.remaining_weight_oz,\n    remaining_weight_g: fbaAnalysis.remaining_weight_g,\n    \n    // SERP Analysis\n    serp_analysis: serpAnalysis,\n    serp_position: serpAnalysis.product_position,\n    serp_on_page_one: serpAnalysis.on_page_one,\n    serp_p1_competitors: serpAnalysis.p1_competitor_count,\n    serp_p1_avg_rating: serpAnalysis.p1_avg_rating,\n    serp_p1_avg_reviews: serpAnalysis.p1_avg_reviews,\n    \n    // Variation Analysis\n    variation_analysis: variationAnalysis,\n    var_sum_sales: variationAnalysis.sum_monthly_sales,\n    var_sum_revenue: variationAnalysis.sum_monthly_revenue,\n    var_median_price: variationAnalysis.median_price,\n    var_median_rating: variationAnalysis.median_rating,\n    \n    // Social Media Analysis (NEW)\n    social_media_analysis: socialMedia.skipped ? null : socialMedia,\n    sm_instagram_handle: socialMedia.instagram?.handle,\n    sm_instagram_followers: socialMedia.instagram?.followers,\n    sm_instagram_following: socialMedia.instagram?.following,\n    sm_instagram_posts: socialMedia.instagram?.posts,\n    sm_instagram_bio: socialMedia.instagram?.bio,\n    sm_tiktok_handle: socialMedia.tiktok?.handle,\n    sm_tiktok_followers: socialMedia.tiktok?.followers,\n    sm_tiktok_likes: socialMedia.tiktok?.likes,\n    sm_tiktok_videos: socialMedia.tiktok?.videos,\n    sm_youtube_channel: socialMedia.youtube?.channel,\n    sm_youtube_subscribers: socialMedia.youtube?.subscribers,\n    sm_youtube_views: socialMedia.youtube?.views,\n    sm_total_followers: socialMedia.totalFollowers,\n    sm_primary_platform: socialMedia.primaryPlatform,\n    \n    // Q&A Analysis (NEW)\n    qa_analysis: qaAnalysis.skipped ? null : qaAnalysis,\n    qa_total_questions: qaAnalysis.totalQuestions,\n    qa_answered_questions: qaAnalysis.answeredQuestions,\n    qa_unanswered_questions: qaAnalysis.unansweredQuestions,\n    qa_avg_answers_per_question: qaAnalysis.avgAnswersPerQuestion,\n    qa_top_questions: qaAnalysis.topQuestions,\n    qa_common_themes: qaAnalysis.commonThemes,\n    \n    // Ad Analysis (NEW)\n    ad_analysis: adAnalysis.skipped ? null : adAnalysis,\n    ad_facebook_active_ads: adAnalysis.facebook?.activeAds,\n    ad_facebook_total_ads: adAnalysis.facebook?.totalAds,\n    ad_facebook_ad_types: adAnalysis.facebook?.adTypes,\n    ad_google_active_ads: adAnalysis.google?.advertisersFound,\n    ad_competitor_ad_spend_estimate: adAnalysis.spendEstimate,\n    ad_top_ad_creatives: adAnalysis.facebook?.topCreatives,\n    \n    // AI Analysis\n    market_analysis: marketAnalysis,\n    review_analysis: reviewAnalysis,\n    ai_opportunity_score: marketAnalysis.opportunity_score,\n    ai_risk_profile: marketAnalysis.risk_profile,\n    ai_recession_proof_score: marketAnalysis.recession_proof_score,\n    ai_competitive_intensity: marketAnalysis.competitive_intensity,\n    ai_is_consumable: marketAnalysis.is_consumable,\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_sentiment_score: reviewAnalysis.sentiment_score,\n    \n    // Timestamps\n    listed_since: product.listed_since,\n    url: product.url,\n    image_url: product.image_url\n  };\n  \n  // Keyword records\n  const kwRecs = keywords.map(kw => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    keyword: kw.keyword,\n    search_volume: kw.search_volume,\n    competition: kw.competition,\n    cpc: kw.cpc\n  }));\n  \n  // Review records\n  const revRecs = reviews.map((rev, idx) => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    review_id: rev.id || `rev_${idx}`,\n    rating: rev.rating,\n    title: rev.title,\n    body: rev.text || rev.body,\n    helpful_votes: rev.helpful_votes || 0,\n    verified_purchase: rev.verified_purchase,\n    review_date: rev.date,\n    has_images: rev.has_images || false,\n    has_videos: rev.has_videos || false\n  }));\n  \n  // Q&A records (NEW)\n  const qaRecs = questions.map((q, idx) => ({\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    question_id: q.id || `qa_${idx}`,\n    question: q.question || q.text,\n    answer: q.answer || q.answers?.[0]?.text,\n    answer_count: q.answers?.length || (q.answer ? 1 : 0),\n    votes: q.votes || q.helpful_votes || 0,\n    asked_by: q.asked_by || q.author,\n    answered_by: q.answered_by || q.answers?.[0]?.author,\n    is_seller_answer: q.is_seller_answer || q.answers?.[0]?.is_seller || false\n  }));\n  \n  // Review summary record\n  const summaryRec = reviews.length > 0 ? {\n    research_id: researchId,\n    asin: product.asin || data.asin,\n    total_reviews: reviews.length,\n    avg_rating: reviewSummary.avg_rating || (reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length),\n    ai_sentiment: reviewAnalysis.overall_sentiment,\n    ai_pain_points: reviewAnalysis.pain_points,\n    ai_praised_features: reviewAnalysis.praised_features,\n    ai_key_insight: reviewAnalysis.key_insight\n  } : null;\n  \n  // Social media profile records (NEW)\n  const socialRecs = [];\n  if (socialMedia && !socialMedia.skipped) {\n    if (socialMedia.instagram?.handle) {\n      socialRecs.push({\n        research_id: researchId,\n        asin: product.asin || data.asin,\n        brand: product.brand,\n        platform: 'instagram',\n        handle: socialMedia.instagram.handle,\n        followers: socialMedia.instagram.followers,\n        following: socialMedia.instagram.following,\n        posts_count: socialMedia.instagram.posts,\n        bio: socialMedia.instagram.bio,\n        website: socialMedia.instagram.website,\n        verified: socialMedia.instagram.verified,\n        profile_image: socialMedia.instagram.profileImage\n      });\n    }\n    if (socialMedia.tiktok?.handle) {\n      socialRecs.push({\n        research_id: researchId,\n        asin: product.asin || data.asin,\n        brand: product.brand,\n        platform: 'tiktok',\n        handle: socialMedia.tiktok.handle,\n        followers: socialMedia.tiktok.followers,\n        following: socialMedia.tiktok.following,\n        total_likes: socialMedia.tiktok.likes,\n        posts_count: socialMedia.tiktok.videos,\n        bio: socialMedia.tiktok.bio,\n        verified: socialMedia.tiktok.verified\n      });\n    }\n    if (socialMedia.youtube?.channel) {\n      socialRecs.push({\n        research_id: researchId,\n        asin: product.asin || data.asin,\n        brand: product.brand,\n        platform: 'youtube',\n        handle: socialMedia.youtube.channel,\n        followers: socialMedia.youtube.subscribers,\n        posts_count: socialMedia.youtube.videos,\n        bio: socialMedia.youtube.description\n      });\n    }\n  }\n  \n  results.push({\n    json: {\n      config,\n      researchId,\n      productRecord,\n      kwRecs,\n      revRecs,\n      qaRecs,\n      socialRecs,\n      summaryRec,\n      counts: {\n        keywords: kwRecs.length,\n        reviews: revRecs.length,\n        questions: qaRecs.length,\n        socialProfiles: socialRecs.length,\n        hasSummary: !!summaryRec\n      }\n    }\n  });\n}\n\nreturn results;"
         }
       },
       {
@@ -3557,6 +4386,543 @@
         "parameters": {
           "mode": "append"
         }
+      },
+      {
+        "id": "check-social",
+        "name": "Run Social Media?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          3180,
+          750
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "social-check",
+                "leftValue": "={{ $('Set Config').item.json.config.runSocialMedia }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "scrape-instagram",
+        "name": "Scrape Instagram",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3400,
+          650
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "=https://api.scrapecreators.com/v1/instagram/profile?handle={{ $json.product.brand.toLowerCase().replace(/[^a-z0-9]/g, '') }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-api-key",
+                "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "scrape-tiktok",
+        "name": "Scrape TikTok",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3400,
+          800
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "=https://api.scrapecreators.com/v1/tiktok/profile?handle={{ $json.product.brand.toLowerCase().replace(/[^a-z0-9]/g, '') }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-api-key",
+                "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "scrape-youtube",
+        "name": "Scrape YouTube",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3400,
+          950
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "=https://api.scrapecreators.com/v1/youtube/channel?handle={{ $json.product.brand.toLowerCase().replace(/[^a-z0-9]/g, '') }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-api-key",
+                "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "aggregate-social",
+        "name": "Aggregate Social Media",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3620,
+          800
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "// Aggregate social media data from Instagram, TikTok, YouTube\nconst items = $input.all();\n\n// Get the original product data from previous flow\nconst originalData = $('Run Social Media?').first().json;\n\n// Parse responses (some may have failed)\nconst instagram = items[0]?.json || {};\nconst tiktok = items[1]?.json || {};\nconst youtube = items[2]?.json || {};\n\nconst socialMedia = {\n  instagram: {\n    handle: instagram.username || null,\n    followers: instagram.edge_followed_by?.count || instagram.follower_count || 0,\n    following: instagram.edge_follow?.count || instagram.following_count || 0,\n    posts: instagram.edge_owner_to_timeline_media?.count || instagram.media_count || 0,\n    bio: instagram.biography || null,\n    website: instagram.external_url || null,\n    verified: instagram.is_verified || false,\n    profileImage: instagram.profile_pic_url || null\n  },\n  tiktok: {\n    handle: tiktok.uniqueId || tiktok.username || null,\n    followers: tiktok.followerCount || tiktok.fans || 0,\n    following: tiktok.followingCount || 0,\n    likes: tiktok.heartCount || tiktok.heart || 0,\n    videos: tiktok.videoCount || 0,\n    bio: tiktok.signature || tiktok.bio || null,\n    verified: tiktok.verified || false\n  },\n  youtube: {\n    channel: youtube.title || youtube.name || null,\n    subscribers: youtube.subscriberCount || youtube.subscriber_count || 0,\n    views: youtube.viewCount || youtube.view_count || 0,\n    videos: youtube.videoCount || youtube.video_count || 0,\n    description: youtube.description || null\n  }\n};\n\n// Calculate totals\nconst totalFollowers = \n  socialMedia.instagram.followers + \n  socialMedia.tiktok.followers + \n  socialMedia.youtube.subscribers;\n\n// Determine primary platform\nlet primaryPlatform = 'none';\nconst platforms = [\n  { name: 'instagram', count: socialMedia.instagram.followers },\n  { name: 'tiktok', count: socialMedia.tiktok.followers },\n  { name: 'youtube', count: socialMedia.youtube.subscribers }\n];\nconst maxPlatform = platforms.reduce((a, b) => a.count > b.count ? a : b);\nif (maxPlatform.count > 0) primaryPlatform = maxPlatform.name;\n\nreturn [{\n  json: {\n    ...originalData,\n    socialMedia: {\n      ...socialMedia,\n      totalFollowers,\n      primaryPlatform,\n      scrapedAt: new Date().toISOString()\n    }\n  }\n}];"
+        }
+      },
+      {
+        "id": "skip-social",
+        "name": "No Social Media",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          3400,
+          1100
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "skip-social-flag",
+                "name": "socialMedia",
+                "type": "object",
+                "value": "={{ { skipped: true } }}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "merge-social",
+        "name": "Merge Social Media",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          3840,
+          850
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "check-qa",
+        "name": "Run Q&A Analysis?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          4060,
+          750
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "qa-check",
+                "leftValue": "={{ $('Set Config').item.json.config.runQAAnalysis }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "brightdata-qa",
+        "name": "Bright Data Q&A",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4280,
+          650
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.brightdata.com/datasets/v3/trigger",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $('Set Config').item.json.config.brightdataKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "url",
+                "value": "=https://www.amazon.com/ask/questions/asin/{{ $('Set Config').item.json.asin }}"
+              },
+              {
+                "name": "dataset_id",
+                "value": "gd_lfqkr8wm13ixtbd8f5"
+              },
+              {
+                "name": "format",
+                "value": "json"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "process-qa",
+        "name": "Process Q&A",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4500,
+          650
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "// Process Amazon Q&A data from Bright Data\nconst items = $input.all();\nconst originalData = $('Run Q&A Analysis?').first().json;\nconst qaResponse = items[0]?.json || {};\n\n// Parse Q&A data\nconst questions = qaResponse.questions || qaResponse.data || [];\n\nconst qaAnalysis = {\n  totalQuestions: questions.length,\n  answeredQuestions: questions.filter(q => q.answer || q.answers?.length > 0).length,\n  unansweredQuestions: questions.filter(q => !q.answer && (!q.answers || q.answers.length === 0)).length,\n  avgAnswersPerQuestion: questions.length > 0 \n    ? questions.reduce((sum, q) => sum + (q.answers?.length || (q.answer ? 1 : 0)), 0) / questions.length \n    : 0,\n  topQuestions: questions.slice(0, 10).map(q => ({\n    question: q.question || q.text,\n    answer: q.answer || q.answers?.[0]?.text || null,\n    votes: q.votes || q.helpful_votes || 0,\n    askedBy: q.asked_by || q.author || null,\n    answeredBy: q.answered_by || q.answers?.[0]?.author || null,\n    isSellerAnswer: q.is_seller_answer || q.answers?.[0]?.is_seller || false\n  })),\n  // Extract common themes from questions\n  commonThemes: extractThemes(questions)\n};\n\nfunction extractThemes(questions) {\n  const themes = {};\n  const keywords = ['size', 'fit', 'quality', 'battery', 'warranty', 'return', 'shipping', \n                    'compatible', 'work with', 'how to', 'difference', 'vs', 'better'];\n  \n  questions.forEach(q => {\n    const text = (q.question || q.text || '').toLowerCase();\n    keywords.forEach(kw => {\n      if (text.includes(kw)) {\n        themes[kw] = (themes[kw] || 0) + 1;\n      }\n    });\n  });\n  \n  return Object.entries(themes)\n    .sort((a, b) => b[1] - a[1])\n    .slice(0, 5)\n    .map(([theme, count]) => ({ theme, count }));\n}\n\nreturn [{\n  json: {\n    ...originalData,\n    qaAnalysis,\n    questions: questions.slice(0, 20) // Store top 20 questions\n  }\n}];"
+        }
+      },
+      {
+        "id": "skip-qa",
+        "name": "No Q&A",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          4280,
+          900
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "skip-qa-flag",
+                "name": "qaAnalysis",
+                "type": "object",
+                "value": "={{ { skipped: true } }}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "merge-qa",
+        "name": "Merge Q&A",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          4720,
+          750
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "check-ads",
+        "name": "Run Ad Analysis?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          4940,
+          750
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "ads-check",
+                "leftValue": "={{ $('Set Config').item.json.config.runAdAnalysis }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "fb-ad-library",
+        "name": "Facebook Ad Library",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5160,
+          650
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "=https://api.scrapecreators.com/v1/meta-ad-library/search?query={{ encodeURIComponent($json.product.brand) }}&country=US&limit=20",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-api-key",
+                "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "google-ads",
+        "name": "Google Ads Transparency",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5160,
+          850
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "=https://api.scrapecreators.com/v1/google/advertiser/search?query={{ encodeURIComponent($json.product.brand) }}&limit=10",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-api-key",
+                "value": "={{ $('Set Config').item.json.config.scrapeCreatorsKey }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "process-ads",
+        "name": "Process Ads",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          5380,
+          750
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "// Process advertising data from Facebook Ad Library and Google Ads\nconst items = $input.all();\nconst originalData = $('Run Ad Analysis?').first().json;\n\nconst fbAds = items[0]?.json?.data || items[0]?.json?.ads || [];\nconst googleAds = items[1]?.json?.data || items[1]?.json?.advertisers || [];\n\n// Process Facebook ads\nconst fbAnalysis = {\n  activeAds: fbAds.filter(ad => ad.is_active || ad.status === 'active').length,\n  totalAds: fbAds.length,\n  adTypes: countAdTypes(fbAds),\n  platforms: countPlatforms(fbAds),\n  topCreatives: fbAds.slice(0, 5).map(ad => ({\n    id: ad.id || ad.ad_id,\n    type: ad.ad_type || ad.media_type || 'unknown',\n    startDate: ad.start_date || ad.ad_delivery_start_time,\n    creative: ad.ad_creative_link_captions?.[0] || ad.body_text || null,\n    landingPage: ad.ad_creative_link_destinations?.[0] || ad.link_url || null,\n    imageUrl: ad.ad_snapshot_url || ad.image_url || null\n  }))\n};\n\n// Process Google ads\nconst googleAnalysis = {\n  advertisersFound: googleAds.length,\n  adFormats: googleAds.reduce((acc, adv) => {\n    (adv.ad_formats || []).forEach(f => {\n      acc[f] = (acc[f] || 0) + 1;\n    });\n    return acc;\n  }, {}),\n  topAdvertisers: googleAds.slice(0, 3).map(adv => ({\n    name: adv.advertiser_name || adv.name,\n    id: adv.advertiser_id || adv.id,\n    verificationStatus: adv.verification_status || null\n  }))\n};\n\nfunction countAdTypes(ads) {\n  return ads.reduce((acc, ad) => {\n    const type = ad.ad_type || ad.media_type || 'other';\n    acc[type] = (acc[type] || 0) + 1;\n    return acc;\n  }, {});\n}\n\nfunction countPlatforms(ads) {\n  return ads.reduce((acc, ad) => {\n    (ad.publisher_platforms || []).forEach(p => {\n      acc[p] = (acc[p] || 0) + 1;\n    });\n    return acc;\n  }, {});\n}\n\n// Estimate ad spend based on number of active ads\nlet spendEstimate = 'unknown';\nif (fbAnalysis.activeAds > 50) spendEstimate = 'high ($10k+/month)';\nelse if (fbAnalysis.activeAds > 20) spendEstimate = 'medium ($2k-$10k/month)';\nelse if (fbAnalysis.activeAds > 5) spendEstimate = 'low ($500-$2k/month)';\nelse if (fbAnalysis.activeAds > 0) spendEstimate = 'minimal (<$500/month)';\nelse spendEstimate = 'none detected';\n\nreturn [{\n  json: {\n    ...originalData,\n    adAnalysis: {\n      facebook: fbAnalysis,\n      google: googleAnalysis,\n      spendEstimate,\n      scrapedAt: new Date().toISOString()\n    }\n  }\n}];"
+        }
+      },
+      {
+        "id": "skip-ads",
+        "name": "No Ad Analysis",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          5160,
+          1000
+        ],
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "skip-ads-flag",
+                "name": "adAnalysis",
+                "type": "object",
+                "value": "={{ { skipped: true } }}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "merge-ads",
+        "name": "Merge Ads",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          5600,
+          850
+        ],
+        "parameters": {
+          "mode": "append"
+        }
+      },
+      {
+        "id": "save-qa",
+        "name": "Save Q&A",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4060,
+          450
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.config.sbUrl }}/rest/v1/amazon_qa",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $json.config.sbKey }}"
+              },
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.config.sbKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.qaRecs }}",
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "save-social",
+        "name": "Save Social Profiles",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4060,
+          600
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.config.sbUrl }}/rest/v1/brand_social_profiles",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $json.config.sbKey }}"
+              },
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.config.sbKey }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.socialRecs }}",
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        }
       }
     ],
     "connections": {
@@ -3812,7 +5178,7 @@
         "main": [
           [
             {
-              "node": "Run AI Analysis?",
+              "node": "Run Social Media?",
               "type": "main",
               "index": 0
             }
@@ -3986,6 +5352,16 @@
             },
             {
               "node": "Save Reviews",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Save Q&A",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Save Social Profiles",
               "type": "main",
               "index": 0
             }
@@ -4192,6 +5568,240 @@
             }
           ]
         ]
+      },
+      "Run Social Media?": {
+        "main": [
+          [
+            {
+              "node": "Scrape Instagram",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Scrape TikTok",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Scrape YouTube",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No Social Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Scrape Instagram": {
+        "main": [
+          [
+            {
+              "node": "Aggregate Social Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Scrape TikTok": {
+        "main": [
+          [
+            {
+              "node": "Aggregate Social Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Scrape YouTube": {
+        "main": [
+          [
+            {
+              "node": "Aggregate Social Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Aggregate Social Media": {
+        "main": [
+          [
+            {
+              "node": "Merge Social Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No Social Media": {
+        "main": [
+          [
+            {
+              "node": "Merge Social Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Social Media": {
+        "main": [
+          [
+            {
+              "node": "Run Q&A Analysis?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run Q&A Analysis?": {
+        "main": [
+          [
+            {
+              "node": "Bright Data Q&A",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No Q&A",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Bright Data Q&A": {
+        "main": [
+          [
+            {
+              "node": "Process Q&A",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Q&A": {
+        "main": [
+          [
+            {
+              "node": "Merge Q&A",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No Q&A": {
+        "main": [
+          [
+            {
+              "node": "Merge Q&A",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Q&A": {
+        "main": [
+          [
+            {
+              "node": "Run Ad Analysis?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run Ad Analysis?": {
+        "main": [
+          [
+            {
+              "node": "Facebook Ad Library",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Google Ads Transparency",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No Ad Analysis",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Facebook Ad Library": {
+        "main": [
+          [
+            {
+              "node": "Process Ads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Google Ads Transparency": {
+        "main": [
+          [
+            {
+              "node": "Process Ads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Ads": {
+        "main": [
+          [
+            {
+              "node": "Merge Ads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No Ad Analysis": {
+        "main": [
+          [
+            {
+              "node": "Merge Ads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Ads": {
+        "main": [
+          [
+            {
+              "node": "Run AI Analysis?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "authors": "Jeremy Hamilton",
@@ -4200,10 +5810,10 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-01-15T21:59:47.542Z",
-        "id": 143,
+        "createdAt": "2026-01-15T22:16:56.091Z",
+        "id": 149,
         "workflowId": "JHBsr7jS9CMs45WU",
-        "versionId": "1dd40a9d-78eb-46a8-8f92-11cb53741e5e",
+        "versionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
         "event": "activated",
         "userId": "75e56a99-ffa6-49af-8906-2f08adc1738b"
       }

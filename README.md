@@ -32,12 +32,33 @@ Amazon product research automation workflows for n8n.
 - Sponsored listing count
 - Average ratings and reviews of top competitors
 
+### Social Media Analysis (NEW)
+- Instagram profile scraping (followers, posts, bio)
+- TikTok profile scraping (followers, likes, videos)
+- YouTube channel scraping (subscribers, views, videos)
+- Total follower aggregation across platforms
+- Primary platform identification
+
+### Amazon Q&A Analysis (NEW)
+- Customer questions and answers scraping
+- Answered vs unanswered question counts
+- Common question themes extraction
+- Top questions with vote counts
+
+### Competitor Ad Analysis (NEW)
+- Facebook Ad Library integration
+- Google Ads Transparency search
+- Active ad count and ad types
+- Ad spend estimation based on volume
+- Top creative previews
+
 ## API Integrations
 
 - **Keepa** - Amazon product data, pricing history, BSR tracking, variation data
 - **DataForSEO** - Amazon keyword search volume, competition, and SERP rankings
 - **Apify** - Amazon review scraping (alternative)
-- **Bright Data** - Proxy and scraping services
+- **Bright Data** - Proxy, scraping services, and Amazon Q&A
+- **Scrape Creators** - Social media profiles (Instagram, TikTok, YouTube) and Ad Libraries
 - **OpenAI** - AI market analysis and review sentiment
 - **Supabase** - PostgreSQL database storage
 
@@ -61,7 +82,10 @@ Set these in your workflow request body or n8n environment variables:
   "apifyToken": "your-apify-token",
   "openaiKey": "your-openai-key",
   "sbUrl": "https://your-project.supabase.co",
-  "sbKey": "your-supabase-service-role-key"
+  "sbKey": "your-supabase-service-role-key",
+  "dataforseoAuth": "base64-encoded-credentials",
+  "brightdataKey": "your-brightdata-api-key",
+  "scrapeCreatorsKey": "your-scrapecreators-api-key"
 }
 ```
 
@@ -79,13 +103,18 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
     "scrapeReviews": true,
     "analyzeVariations": true,
     "runSerpAnalysis": false,
+    "runSocialMedia": false,
+    "runQAAnalysis": false,
+    "runAdAnalysis": false,
     "reviewService": "apify",
     "keepaKey": "...",
     "apifyToken": "...",
     "openaiKey": "...",
     "sbUrl": "...",
     "sbKey": "...",
-    "dataforseoAuth": "..."
+    "dataforseoAuth": "...",
+    "brightdataKey": "...",
+    "scrapeCreatorsKey": "..."
   }'
 ```
 
@@ -97,8 +126,11 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
 | `saveToSupabase` | boolean | false | Save results to Supabase |
 | `runAiAnalysis` | boolean | false | Run AI market/review analysis |
 | `scrapeReviews` | boolean | false | Scrape product reviews |
-| `analyzeVariations` | boolean | false | Fetch and aggregate variation data |
+| `analyzeVariations` | boolean | true | Fetch and aggregate variation data |
 | `runSerpAnalysis` | boolean | false | Run SERP rankings analysis |
+| `runSocialMedia` | boolean | false | Scrape brand social media profiles |
+| `runQAAnalysis` | boolean | false | Scrape Amazon Q&A data |
+| `runAdAnalysis` | boolean | false | Search competitor ad libraries |
 | `reviewService` | string | "apify" | Review service: "apify" or "brightdata" |
 
 ### Calculate FBA Fees
@@ -121,18 +153,24 @@ curl -X POST https://your-n8n.com/webhook/fba-calculator \
 | DataForSEO (SERP) | ~$0.01 | Per ASIN |
 | Apify (Reviews) | ~$0.02 | 10 reviews |
 | OpenAI | ~$0.02 | GPT-4o |
+| Scrape Creators (Social) | ~$0.01 | 3 API calls |
+| Scrape Creators (Ads) | ~$0.01 | 2 API calls |
+| Bright Data (Q&A) | ~$0.02 | Per ASIN |
 | Supabase | Free | Free tier |
 | **Total (Basic)** | **~$0.14** | Without variations |
-| **Total (Full)** | **~$0.35** | With variations + SERP |
+| **Total (Full)** | **~$0.40** | With all features |
 
 ## Database Schema
 
 See `/schemas/supabase-schema.sql` for the full PostgreSQL schema including:
 
-- `amazon_products` - 100+ fields for comprehensive product data
+- `amazon_products` - 150+ fields for comprehensive product data
 - `amazon_keywords` - Keyword search volume and competition
 - `amazon_reviews` - Individual review data
 - `amazon_review_summaries` - AI-analyzed review insights
+- `amazon_qa` - Customer questions and answers
+- `brand_social_profiles` - Social media profile data
+- `competitor_ads` - Facebook/Google ad library data
 
 ## License
 
