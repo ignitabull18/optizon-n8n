@@ -32,22 +32,20 @@ Amazon product research automation workflows for n8n.
 - Sponsored listing count
 - Average ratings and reviews of top competitors
 
-### Social Media Analysis (NEW)
+### Social Media Analysis
 - Instagram profile scraping (followers, posts, bio)
 - TikTok profile scraping (followers, likes, videos)
 - YouTube channel scraping (subscribers, views, videos)
 - Total follower aggregation across platforms
 - Primary platform identification
 
-### Amazon Q&A Analysis (NEW) ⚠️
-- Customer questions and answers scraping
+### Amazon Q&A Analysis
+- Customer questions and answers scraping via Oxylabs
 - Answered vs unanswered question counts
 - Common question themes extraction
 - Top questions with vote counts
 
-> **Note:** Q&A scraping requires a paid API subscription (Apify paid actors or Oxylabs). The workflow gracefully handles missing API access and returns structured error responses.
-
-### Competitor Ad Analysis (NEW)
+### Competitor Ad Analysis
 - Facebook Ad Library integration
 - Google Ads Transparency search
 - Active ad count and ad types
@@ -58,8 +56,7 @@ Amazon product research automation workflows for n8n.
 
 - **Keepa** - Amazon product data, pricing history, BSR tracking, variation data
 - **DataForSEO** - Amazon keyword search volume, competition, and SERP rankings
-- **Apify** - Amazon review scraping (alternative)
-- **Bright Data** - Proxy, scraping services, and Amazon Q&A
+- **Oxylabs** - Amazon Reviews and Q&A scraping
 - **Scrape Creators** - Social media profiles (Instagram, TikTok, YouTube) and Ad Libraries
 - **OpenAI** - AI market analysis and review sentiment
 - **Supabase** - PostgreSQL database storage
@@ -81,13 +78,13 @@ Set these in your workflow request body or n8n environment variables:
 ```json
 {
   "keepaKey": "your-keepa-api-key",
-  "apifyToken": "your-apify-token",
   "openaiKey": "your-openai-key",
   "sbUrl": "https://your-project.supabase.co",
   "sbKey": "your-supabase-service-role-key",
   "dataforseoAuth": "base64-encoded-credentials",
-  "brightdataKey": "your-brightdata-api-key",
-  "scrapeCreatorsKey": "your-scrapecreators-api-key"
+  "scrapeCreatorsKey": "your-scrapecreators-api-key",
+  "oxylabsUsername": "your-oxylabs-username",
+  "oxylabsPassword": "your-oxylabs-password"
 }
 ```
 
@@ -108,15 +105,14 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
     "runSocialMedia": false,
     "runQAAnalysis": false,
     "runAdAnalysis": false,
-    "reviewService": "apify",
     "keepaKey": "...",
-    "apifyToken": "...",
     "openaiKey": "...",
     "sbUrl": "...",
     "sbKey": "...",
     "dataforseoAuth": "...",
-    "brightdataKey": "...",
-    "scrapeCreatorsKey": "..."
+    "scrapeCreatorsKey": "...",
+    "oxylabsUsername": "...",
+    "oxylabsPassword": "..."
   }'
 ```
 
@@ -133,7 +129,6 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
 | `runSocialMedia` | boolean | false | Scrape brand social media profiles |
 | `runQAAnalysis` | boolean | false | Scrape Amazon Q&A data |
 | `runAdAnalysis` | boolean | false | Search competitor ad libraries |
-| `reviewService` | string | "apify" | Review service: "apify" or "brightdata" |
 
 ### Calculate FBA Fees
 
@@ -153,14 +148,14 @@ curl -X POST https://your-n8n.com/webhook/fba-calculator \
 | Keepa (Product) | ~$0.10 | 5 tokens |
 | Keepa (Variations) | ~$0.20-0.40 | 10-20 tokens for batch |
 | DataForSEO (SERP) | ~$0.01 | Per ASIN |
-| Apify (Reviews) | ~$0.02 | 10 reviews |
+| Oxylabs (Reviews) | ~$0.013 | 10 reviews |
+| Oxylabs (Q&A) | ~$0.0013 | Per ASIN |
 | OpenAI | ~$0.02 | GPT-4o |
 | Scrape Creators (Social) | ~$0.01 | 3 API calls |
 | Scrape Creators (Ads) | ~$0.01 | 2 API calls |
-| Bright Data (Q&A) | ~$0.02 | Per ASIN |
 | Supabase | Free | Free tier |
-| **Total (Basic)** | **~$0.14** | Without variations |
-| **Total (Full)** | **~$0.40** | With all features |
+| **Total (Basic)** | **~$0.12** | Without variations |
+| **Total (Full)** | **~$0.35** | With all features |
 
 ## Database Schema
 
