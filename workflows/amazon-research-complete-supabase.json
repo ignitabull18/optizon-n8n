@@ -1,7 +1,4 @@
 {
-  "updatedAt": "2026-01-15T22:16:55.884Z",
-  "createdAt": "2026-01-14T22:36:10.555Z",
-  "id": "JHBsr7jS9CMs45WU",
   "name": "Amazon Research - Complete + Supabase",
   "description": null,
   "active": true,
@@ -1577,12 +1574,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3620,
+        3730,
         800
       ],
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Aggregate social media data from Instagram, TikTok, YouTube\nconst items = $input.all();\n\n// Get the original product data from previous flow\nconst originalData = $('Run Social Media?').first().json;\n\n// Parse responses (some may have failed)\nconst instagram = items[0]?.json || {};\nconst tiktok = items[1]?.json || {};\nconst youtube = items[2]?.json || {};\n\nconst socialMedia = {\n  instagram: {\n    handle: instagram.username || null,\n    followers: instagram.edge_followed_by?.count || instagram.follower_count || 0,\n    following: instagram.edge_follow?.count || instagram.following_count || 0,\n    posts: instagram.edge_owner_to_timeline_media?.count || instagram.media_count || 0,\n    bio: instagram.biography || null,\n    website: instagram.external_url || null,\n    verified: instagram.is_verified || false,\n    profileImage: instagram.profile_pic_url || null\n  },\n  tiktok: {\n    handle: tiktok.uniqueId || tiktok.username || null,\n    followers: tiktok.followerCount || tiktok.fans || 0,\n    following: tiktok.followingCount || 0,\n    likes: tiktok.heartCount || tiktok.heart || 0,\n    videos: tiktok.videoCount || 0,\n    bio: tiktok.signature || tiktok.bio || null,\n    verified: tiktok.verified || false\n  },\n  youtube: {\n    channel: youtube.title || youtube.name || null,\n    subscribers: youtube.subscriberCount || youtube.subscriber_count || 0,\n    views: youtube.viewCount || youtube.view_count || 0,\n    videos: youtube.videoCount || youtube.video_count || 0,\n    description: youtube.description || null\n  }\n};\n\n// Calculate totals\nconst totalFollowers = \n  socialMedia.instagram.followers + \n  socialMedia.tiktok.followers + \n  socialMedia.youtube.subscribers;\n\n// Determine primary platform\nlet primaryPlatform = 'none';\nconst platforms = [\n  { name: 'instagram', count: socialMedia.instagram.followers },\n  { name: 'tiktok', count: socialMedia.tiktok.followers },\n  { name: 'youtube', count: socialMedia.youtube.subscribers }\n];\nconst maxPlatform = platforms.reduce((a, b) => a.count > b.count ? a : b);\nif (maxPlatform.count > 0) primaryPlatform = maxPlatform.name;\n\nreturn [{\n  json: {\n    ...originalData,\n    socialMedia: {\n      ...socialMedia,\n      totalFollowers,\n      primaryPlatform,\n      scrapedAt: new Date().toISOString()\n    }\n  }\n}];"
+        "jsCode": "// Aggregate social media data from Scrape Creators API\n// Response structures differ:\n// - Instagram: { success, data: { user: { edge_followed_by: { count } } } }\n// - TikTok: { success, user: { uniqueId }, stats: { followerCount } } - NOT wrapped in data\n// - YouTube: { success, channelId, subscriberCount } - NOT wrapped in data\n\nconst items = $input.all();\nconst originalData = $('Run Social Media?').first().json;\n\nlet instagram = { handle: null, followers: 0, following: 0, posts: 0, bio: null, website: null, verified: false, profileImage: null };\nlet tiktok = { handle: null, followers: 0, following: 0, likes: 0, videos: 0, bio: null, verified: false };\nlet youtube = { channel: null, subscribers: 0, views: 0, videos: 0, description: null };\n\nfor (const item of items) {\n  const json = item.json || {};\n  \n  // Instagram: has data.user.edge_followed_by (Instagram's GraphQL structure wrapped in data)\n  if (json.data?.user?.edge_followed_by) {\n    const user = json.data.user;\n    instagram = {\n      handle: user.username || user.full_name || null,\n      followers: user.edge_followed_by?.count || 0,\n      following: user.edge_follow?.count || 0,\n      posts: user.edge_owner_to_timeline_media?.count || 0,\n      bio: user.biography || null,\n      website: user.external_url || null,\n      verified: user.is_verified || false,\n      profileImage: user.profile_pic_url_hd || user.profile_pic_url || null\n    };\n  }\n  // TikTok: has stats.followerCount at root level (NOT wrapped in data)\n  else if (json.stats?.followerCount !== undefined || json.user?.uniqueId) {\n    const user = json.user || {};\n    const stats = json.stats || {};\n    tiktok = {\n      handle: user.uniqueId || user.nickname || null,\n      followers: stats.followerCount || 0,\n      following: stats.followingCount || 0,\n      likes: stats.heartCount || stats.heart || 0,\n      videos: stats.videoCount || 0,\n      bio: user.signature || null,\n      verified: user.verified || false\n    };\n  }\n  // YouTube: has subscriberCount at root level (NOT wrapped in data)\n  else if (json.subscriberCount !== undefined || json.channelId) {\n    youtube = {\n      channel: json.name || json.handle || null,\n      subscribers: json.subscriberCount || 0,\n      views: json.viewCount || 0,\n      videos: json.videoCount || 0,\n      description: json.description || null\n    };\n  }\n}\n\nconst totalFollowers = instagram.followers + tiktok.followers + youtube.subscribers;\nlet primaryPlatform = null;\nif (instagram.followers >= tiktok.followers && instagram.followers >= youtube.subscribers) {\n  primaryPlatform = 'instagram';\n} else if (tiktok.followers >= youtube.subscribers) {\n  primaryPlatform = 'tiktok';\n} else {\n  primaryPlatform = 'youtube';\n}\n\nreturn [{\n  json: {\n    ...originalData,\n    socialMedia: {\n      instagram,\n      tiktok,\n      youtube,\n      totalFollowers,\n      primaryPlatform\n    }\n  },\n  pairedItem: { item: 0 }\n}];"
       }
     },
     {
@@ -1985,6 +1981,20 @@
             }
           }
         }
+      }
+    },
+    {
+      "id": "merge-social-data",
+      "name": "Merge Social Scrapers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3580,
+        800
+      ],
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 3
       }
     }
   ],
@@ -2660,39 +2670,6 @@
         ]
       ]
     },
-    "Scrape Instagram": {
-      "main": [
-        [
-          {
-            "node": "Aggregate Social Media",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Scrape TikTok": {
-      "main": [
-        [
-          {
-            "node": "Aggregate Social Media",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Scrape YouTube": {
-      "main": [
-        [
-          {
-            "node": "Aggregate Social Media",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Aggregate Social Media": {
       "main": [
         [
@@ -2865,6 +2842,50 @@
           }
         ]
       ]
+    },
+    "Scrape Instagram": {
+      "main": [
+        [
+          {
+            "node": "Merge Social Scrapers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape TikTok": {
+      "main": [
+        [
+          {
+            "node": "Merge Social Scrapers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Scrape YouTube": {
+      "main": [
+        [
+          {
+            "node": "Merge Social Scrapers",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Social Scrapers": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -2875,9 +2896,9 @@
   "staticData": null,
   "meta": null,
   "pinData": null,
-  "versionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
-  "activeVersionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
-  "versionCounter": 236,
+  "versionId": "5b57cdee-a4a5-48d5-8093-70e270150ff6",
+  "activeVersionId": "5b57cdee-a4a5-48d5-8093-70e270150ff6",
+  "versionCounter": 263,
   "triggerCount": 1,
   "shared": [
     {
@@ -2939,9 +2960,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-01-15T22:16:55.890Z",
-    "createdAt": "2026-01-15T22:16:55.890Z",
-    "versionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
+    "updatedAt": "2026-01-15T22:53:38.359Z",
+    "createdAt": "2026-01-15T22:53:38.359Z",
+    "versionId": "5b57cdee-a4a5-48d5-8093-70e270150ff6",
     "workflowId": "JHBsr7jS9CMs45WU",
     "nodes": [
       {
@@ -4514,12 +4535,11 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          3620,
+          3730,
           800
         ],
         "parameters": {
-          "mode": "runOnceForAllItems",
-          "jsCode": "// Aggregate social media data from Instagram, TikTok, YouTube\nconst items = $input.all();\n\n// Get the original product data from previous flow\nconst originalData = $('Run Social Media?').first().json;\n\n// Parse responses (some may have failed)\nconst instagram = items[0]?.json || {};\nconst tiktok = items[1]?.json || {};\nconst youtube = items[2]?.json || {};\n\nconst socialMedia = {\n  instagram: {\n    handle: instagram.username || null,\n    followers: instagram.edge_followed_by?.count || instagram.follower_count || 0,\n    following: instagram.edge_follow?.count || instagram.following_count || 0,\n    posts: instagram.edge_owner_to_timeline_media?.count || instagram.media_count || 0,\n    bio: instagram.biography || null,\n    website: instagram.external_url || null,\n    verified: instagram.is_verified || false,\n    profileImage: instagram.profile_pic_url || null\n  },\n  tiktok: {\n    handle: tiktok.uniqueId || tiktok.username || null,\n    followers: tiktok.followerCount || tiktok.fans || 0,\n    following: tiktok.followingCount || 0,\n    likes: tiktok.heartCount || tiktok.heart || 0,\n    videos: tiktok.videoCount || 0,\n    bio: tiktok.signature || tiktok.bio || null,\n    verified: tiktok.verified || false\n  },\n  youtube: {\n    channel: youtube.title || youtube.name || null,\n    subscribers: youtube.subscriberCount || youtube.subscriber_count || 0,\n    views: youtube.viewCount || youtube.view_count || 0,\n    videos: youtube.videoCount || youtube.video_count || 0,\n    description: youtube.description || null\n  }\n};\n\n// Calculate totals\nconst totalFollowers = \n  socialMedia.instagram.followers + \n  socialMedia.tiktok.followers + \n  socialMedia.youtube.subscribers;\n\n// Determine primary platform\nlet primaryPlatform = 'none';\nconst platforms = [\n  { name: 'instagram', count: socialMedia.instagram.followers },\n  { name: 'tiktok', count: socialMedia.tiktok.followers },\n  { name: 'youtube', count: socialMedia.youtube.subscribers }\n];\nconst maxPlatform = platforms.reduce((a, b) => a.count > b.count ? a : b);\nif (maxPlatform.count > 0) primaryPlatform = maxPlatform.name;\n\nreturn [{\n  json: {\n    ...originalData,\n    socialMedia: {\n      ...socialMedia,\n      totalFollowers,\n      primaryPlatform,\n      scrapedAt: new Date().toISOString()\n    }\n  }\n}];"
+          "jsCode": "// Aggregate social media data from Scrape Creators API\n// Response structures differ:\n// - Instagram: { success, data: { user: { edge_followed_by: { count } } } }\n// - TikTok: { success, user: { uniqueId }, stats: { followerCount } } - NOT wrapped in data\n// - YouTube: { success, channelId, subscriberCount } - NOT wrapped in data\n\nconst items = $input.all();\nconst originalData = $('Run Social Media?').first().json;\n\nlet instagram = { handle: null, followers: 0, following: 0, posts: 0, bio: null, website: null, verified: false, profileImage: null };\nlet tiktok = { handle: null, followers: 0, following: 0, likes: 0, videos: 0, bio: null, verified: false };\nlet youtube = { channel: null, subscribers: 0, views: 0, videos: 0, description: null };\n\nfor (const item of items) {\n  const json = item.json || {};\n  \n  // Instagram: has data.user.edge_followed_by (Instagram's GraphQL structure wrapped in data)\n  if (json.data?.user?.edge_followed_by) {\n    const user = json.data.user;\n    instagram = {\n      handle: user.username || user.full_name || null,\n      followers: user.edge_followed_by?.count || 0,\n      following: user.edge_follow?.count || 0,\n      posts: user.edge_owner_to_timeline_media?.count || 0,\n      bio: user.biography || null,\n      website: user.external_url || null,\n      verified: user.is_verified || false,\n      profileImage: user.profile_pic_url_hd || user.profile_pic_url || null\n    };\n  }\n  // TikTok: has stats.followerCount at root level (NOT wrapped in data)\n  else if (json.stats?.followerCount !== undefined || json.user?.uniqueId) {\n    const user = json.user || {};\n    const stats = json.stats || {};\n    tiktok = {\n      handle: user.uniqueId || user.nickname || null,\n      followers: stats.followerCount || 0,\n      following: stats.followingCount || 0,\n      likes: stats.heartCount || stats.heart || 0,\n      videos: stats.videoCount || 0,\n      bio: user.signature || null,\n      verified: user.verified || false\n    };\n  }\n  // YouTube: has subscriberCount at root level (NOT wrapped in data)\n  else if (json.subscriberCount !== undefined || json.channelId) {\n    youtube = {\n      channel: json.name || json.handle || null,\n      subscribers: json.subscriberCount || 0,\n      views: json.viewCount || 0,\n      videos: json.videoCount || 0,\n      description: json.description || null\n    };\n  }\n}\n\nconst totalFollowers = instagram.followers + tiktok.followers + youtube.subscribers;\nlet primaryPlatform = null;\nif (instagram.followers >= tiktok.followers && instagram.followers >= youtube.subscribers) {\n  primaryPlatform = 'instagram';\n} else if (tiktok.followers >= youtube.subscribers) {\n  primaryPlatform = 'tiktok';\n} else {\n  primaryPlatform = 'youtube';\n}\n\nreturn [{\n  json: {\n    ...originalData,\n    socialMedia: {\n      instagram,\n      tiktok,\n      youtube,\n      totalFollowers,\n      primaryPlatform\n    }\n  },\n  pairedItem: { item: 0 }\n}];"
         }
       },
       {
@@ -4922,6 +4942,20 @@
               }
             }
           }
+        }
+      },
+      {
+        "id": "merge-social-data",
+        "name": "Merge Social Scrapers",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          3580,
+          800
+        ],
+        "parameters": {
+          "mode": "append",
+          "numberInputs": 3
         }
       }
     ],
@@ -5597,39 +5631,6 @@
           ]
         ]
       },
-      "Scrape Instagram": {
-        "main": [
-          [
-            {
-              "node": "Aggregate Social Media",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Scrape TikTok": {
-        "main": [
-          [
-            {
-              "node": "Aggregate Social Media",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Scrape YouTube": {
-        "main": [
-          [
-            {
-              "node": "Aggregate Social Media",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Aggregate Social Media": {
         "main": [
           [
@@ -5802,6 +5803,50 @@
             }
           ]
         ]
+      },
+      "Scrape Instagram": {
+        "main": [
+          [
+            {
+              "node": "Merge Social Scrapers",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Scrape TikTok": {
+        "main": [
+          [
+            {
+              "node": "Merge Social Scrapers",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Scrape YouTube": {
+        "main": [
+          [
+            {
+              "node": "Merge Social Scrapers",
+              "type": "main",
+              "index": 2
+            }
+          ]
+        ]
+      },
+      "Merge Social Scrapers": {
+        "main": [
+          [
+            {
+              "node": "Aggregate Social Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "authors": "Jeremy Hamilton",
@@ -5810,10 +5855,10 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-01-15T22:16:56.091Z",
-        "id": 149,
+        "createdAt": "2026-01-15T22:53:38.574Z",
+        "id": 158,
         "workflowId": "JHBsr7jS9CMs45WU",
-        "versionId": "d2be3ea1-e4e6-4ee9-ad06-55b545035771",
+        "versionId": "5b57cdee-a4a5-48d5-8093-70e270150ff6",
         "event": "activated",
         "userId": "75e56a99-ffa6-49af-8906-2f08adc1738b"
       }
