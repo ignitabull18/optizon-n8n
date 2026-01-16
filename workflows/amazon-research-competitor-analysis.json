@@ -93,8 +93,8 @@
             {"id": "asin", "name": "asin", "value": "={{ $json.body.asin }}", "type": "string"},
             {"id": "keepaKey", "name": "keepaKey", "value": "={{ $json.body.keepaKey }}", "type": "string"},
             {"id": "dataforseoAuth", "name": "dataforseoAuth", "value": "={{ $json.body.dataforseoAuth }}", "type": "string"},
-            {"id": "competitorCount", "name": "competitorCount", "value": "={{ $json.body.competitorCount || 5 }}", "type": "number"},
-            {"id": "minReviews", "name": "MIN_REVIEWS_THRESHOLD", "value": 30, "type": "number"},
+            {"id": "competitorCount", "name": "competitorCount", "value": "={{ $json.body.competitorCount ?? 5 }}", "type": "number"},
+            {"id": "minReviews", "name": "MIN_REVIEWS_THRESHOLD", "value": "={{ $json.body.minReviews ?? 30 }}", "type": "number"},
             {"id": "maxIntersections", "name": "MAX_INTERSECTIONS", "value": 500, "type": "number"},
             {"id": "maxSearchVolume", "name": "MAX_SEARCH_VOLUME", "value": 100000, "type": "number"},
             {"id": "maxPosition", "name": "MAX_POSITION", "value": 100, "type": "number"},
@@ -119,8 +119,7 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.dataforseo.com/v3/dataforseo_labs/amazon/product_competitors/live",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
