@@ -113,6 +113,9 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
     "runSocialMedia": false,
     "runQAAnalysis": false,
     "runAdAnalysis": false,
+    "runCompetitorAnalysis": false,
+    "competitorCount": 5,
+    "competitorMinReviews": 30,
     "keepaKey": "...",
     "openaiKey": "...",
     "sbUrl": "...",
@@ -137,6 +140,9 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
 | `runSocialMedia` | boolean | false | Scrape brand social media profiles |
 | `runQAAnalysis` | boolean | false | Scrape Amazon Q&A data |
 | `runAdAnalysis` | boolean | false | Search competitor ad libraries |
+| `runCompetitorAnalysis` | boolean | false | Run competitor discovery and scoring |
+| `competitorCount` | number | 5 | Number of top competitors to return |
+| `competitorMinReviews` | number | 30 | Minimum reviews for competitor filtering |
 
 ### Analyze Competitors
 
@@ -178,6 +184,7 @@ curl -X POST https://your-n8n.com/webhook/fba-calculator \
 | Supabase | Free | Free tier |
 | **Total (Basic)** | **~$0.12** | Without variations |
 | **Total (Full)** | **~$0.35** | With all features |
+| **Total (Full + Competitors)** | **~$0.48** | All features including competitors |
 | **Competitor Analysis** | **~$0.13** | DataForSEO + Keepa batch |
 
 ## Database Schema
