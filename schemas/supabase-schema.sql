@@ -415,6 +415,29 @@ CREATE TABLE IF NOT EXISTS competitor_ads (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Amazon Competitors Table (Competitor analysis results)
+CREATE TABLE IF NOT EXISTS amazon_competitors (
+  id BIGSERIAL PRIMARY KEY,
+  research_id TEXT,
+  target_asin TEXT,
+  competitor_asin TEXT,
+  rank INTEGER,
+  final_score NUMERIC,
+  title TEXT,
+  brand TEXT,
+  price NUMERIC,
+  rating NUMERIC,
+  review_count INTEGER,
+  bsr INTEGER,
+  sales_estimate INTEGER,
+  keyword_intersections INTEGER,
+  avg_position NUMERIC,
+  ranked_keywords INTEGER,
+  scores JSONB,
+  top_keywords JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -434,6 +457,9 @@ CREATE INDEX IF NOT EXISTS idx_brand_social_profiles_research ON brand_social_pr
 CREATE INDEX IF NOT EXISTS idx_competitor_ads_asin ON competitor_ads(asin);
 CREATE INDEX IF NOT EXISTS idx_competitor_ads_brand ON competitor_ads(brand);
 CREATE INDEX IF NOT EXISTS idx_competitor_ads_research ON competitor_ads(research_id);
+CREATE INDEX IF NOT EXISTS idx_amazon_competitors_target ON amazon_competitors(target_asin);
+CREATE INDEX IF NOT EXISTS idx_amazon_competitors_competitor ON amazon_competitors(competitor_asin);
+CREATE INDEX IF NOT EXISTS idx_amazon_competitors_research ON amazon_competitors(research_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY (Optional)

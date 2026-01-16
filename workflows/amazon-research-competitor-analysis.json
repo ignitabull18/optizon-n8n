@@ -1,0 +1,332 @@
+{
+  "name": "Amazon Research - Competitor Analysis",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook - Competitor Analysis",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "competitor-analysis",
+      "parameters": {
+        "path": "competitor-analysis",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "asin-check",
+              "leftValue": "={{ $json.body.asin }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "keepa-check",
+              "leftValue": "={{ $json.body.keepaKey }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "dataforseo-check",
+              "leftValue": "={{ $json.body.dataforseoAuth }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "stop-missing-params",
+      "name": "Stop - Missing Parameters",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 120],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: 'Missing required parameters. Required: asin, keepaKey, dataforseoAuth' } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "set-constants",
+      "name": "Set Constants",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, -120],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {"id": "asin", "name": "asin", "value": "={{ $json.body.asin }}", "type": "string"},
+            {"id": "keepaKey", "name": "keepaKey", "value": "={{ $json.body.keepaKey }}", "type": "string"},
+            {"id": "dataforseoAuth", "name": "dataforseoAuth", "value": "={{ $json.body.dataforseoAuth }}", "type": "string"},
+            {"id": "competitorCount", "name": "competitorCount", "value": "={{ $json.body.competitorCount || 5 }}", "type": "number"},
+            {"id": "minReviews", "name": "MIN_REVIEWS_THRESHOLD", "value": 30, "type": "number"},
+            {"id": "maxIntersections", "name": "MAX_INTERSECTIONS", "value": 500, "type": "number"},
+            {"id": "maxSearchVolume", "name": "MAX_SEARCH_VOLUME", "value": 100000, "type": "number"},
+            {"id": "maxPosition", "name": "MAX_POSITION", "value": 100, "type": "number"},
+            {"id": "bsrDivisor", "name": "BSR_DIVISOR", "value": 1000, "type": "number"},
+            {"id": "weightIntersections", "name": "WEIGHT_INTERSECTIONS", "value": 0.4, "type": "number"},
+            {"id": "weightPosition", "name": "WEIGHT_POSITION", "value": 0.25, "type": "number"},
+            {"id": "weightVolume", "name": "WEIGHT_VOLUME", "value": 0.15, "type": "number"},
+            {"id": "weightPrice", "name": "WEIGHT_PRICE", "value": 0.1, "type": "number"},
+            {"id": "weightBsr", "name": "WEIGHT_BSR", "value": 0.1, "type": "number"},
+            {"id": "startTime", "name": "startTime", "value": "={{ Date.now() }}", "type": "number"}
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dataforseo-competitors",
+      "name": "DataForSEO - Product Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, -120],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.dataforseo.com/v3/dataforseo_labs/amazon/product_competitors/live",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "=Basic {{ $json.dataforseoAuth }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"asin\": \"{{ $json.asin }}\",\n    \"language_code\": \"en\",\n    \"location_code\": 2840,\n    \"limit\": 50\n  }\n]",
+        "options": {"response": {"response": {"neverError": true, "fullResponse": false}}}
+      }
+    },
+    {
+      "id": "check-competitors-response",
+      "name": "Check Competitors Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, -120],
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+          "conditions": [
+            {
+              "id": "has-results",
+              "leftValue": "={{ $json.tasks?.[0]?.result?.[0]?.items?.length > 0 }}",
+              "rightValue": true,
+              "operator": {"type": "boolean", "operation": "equals"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "no-competitors-found",
+      "name": "No Competitors Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1100, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, meta: { targetAsin: $('Set Constants').item.json.asin, returnedCount: 0, executionTimeSeconds: ((Date.now() - $('Set Constants').item.json.startTime) / 1000).toFixed(2) }, competitors: [], message: 'No competitors found for this ASIN' } }}",
+        "options": {"responseCode": 200}
+      }
+    },
+    {
+      "id": "filter-min-reviews",
+      "name": "Filter - Min Reviews",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, -240],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const config = $('Set Constants').first().json;\nconst items = $input.first().json.tasks?.[0]?.result?.[0]?.items || [];\n\n// Filter competitors with minimum reviews\nconst filtered = items.filter(item => {\n  const reviewCount = item.review_count || 0;\n  return reviewCount >= config.MIN_REVIEWS_THRESHOLD;\n});\n\n// Map to standardized format with initial scoring data\nconst competitors = filtered.map(item => {\n  return {\n    asin: item.asin,\n    title: item.title || '',\n    price: item.price || 0,\n    rating: item.rating || 0,\n    reviewCount: item.review_count || 0,\n    intersections: item.intersections || 0,\n    avgPosition: item.avg_position || 0,\n    competitorMetrics: item.competitor_metrics || {},\n    rankedKeywords: item.ranked_keywords_count || 0,\n    searchVolume: item.se_results || item.search_volume || 0\n  };\n});\n\nreturn [{ json: { competitors, config, totalFound: items.length, afterFilter: competitors.length } }];"
+      }
+    },
+    {
+      "id": "calculate-initial-scores",
+      "name": "Calculate Initial Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, -240],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nconst { competitors, config } = data;\n\n// Calculate partial scores (without Keepa data yet)\nconst scored = competitors.map(c => {\n  // Intersection score (0-1)\n  const intersectionsScore = Math.min(c.intersections / config.MAX_INTERSECTIONS, 1);\n  \n  // Position score (lower is better, inverted)\n  const positionScore = c.avgPosition > 0 \n    ? Math.max(0, 1 - (c.avgPosition / config.MAX_POSITION))\n    : 0;\n  \n  // Volume score\n  const volumeScore = Math.min((c.searchVolume || 0) / config.MAX_SEARCH_VOLUME, 1);\n  \n  // Partial score (60% of total - intersections + position + volume)\n  const partialScore = \n    (intersectionsScore * config.WEIGHT_INTERSECTIONS) +\n    (positionScore * config.WEIGHT_POSITION) +\n    (volumeScore * config.WEIGHT_VOLUME);\n  \n  return {\n    ...c,\n    scores: {\n      intersections: intersectionsScore,\n      position: positionScore,\n      volume: volumeScore,\n      partial: partialScore\n    }\n  };\n});\n\n// Sort by partial score\nscored.sort((a, b) => b.scores.partial - a.scores.partial);\n\n// Take top N\nconst topN = scored.slice(0, config.competitorCount);\n\nreturn [{ json: { competitors: topN, config, stats: { totalFound: data.totalFound, afterFilter: data.afterFilter, selected: topN.length } } }];"
+      }
+    },
+    {
+      "id": "has-competitors",
+      "name": "Has Competitors?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1540, -240],
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+          "conditions": [
+            {
+              "id": "count-check",
+              "leftValue": "={{ $json.competitors.length > 0 }}",
+              "rightValue": true,
+              "operator": {"type": "boolean", "operation": "equals"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "prepare-keepa-request",
+      "name": "Prepare Keepa Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, -360],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nconst { competitors, config } = data;\n\n// Build ASIN list for batch request (target + competitors)\nconst asins = [config.asin, ...competitors.map(c => c.asin)];\nconst asinString = asins.join(',');\n\nreturn [{ \n  json: { \n    asinString,\n    asinCount: asins.length,\n    competitors,\n    config,\n    stats: data.stats\n  } \n}];"
+      }
+    },
+    {
+      "id": "keepa-batch",
+      "name": "Keepa - Batch Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, -360],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.keepa.com/product",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "key", "value": "={{ $json.config.keepaKey }}"},
+            {"name": "domain", "value": "1"},
+            {"name": "asin", "value": "={{ $json.asinString }}"},
+            {"name": "stats", "value": "180"},
+            {"name": "buybox", "value": "1"},
+            {"name": "offers", "value": "20"}
+          ]
+        },
+        "options": {"response": {"response": {"neverError": true, "fullResponse": false}}}
+      }
+    },
+    {
+      "id": "merge-keepa-final-score",
+      "name": "Merge Keepa & Final Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, -360],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const keepaData = $input.first().json;\nconst prevData = $('Prepare Keepa Request').first().json;\nconst { competitors, config, stats } = prevData;\n\n// Parse Keepa products into a map\nconst keepaProducts = {};\nconst products = keepaData.products || [];\n\nproducts.forEach(p => {\n  const stats = p.stats?.current || [null, null, null, null, null, null, null, null, null, null, null];\n  const currentPrice = stats[0] !== null && stats[0] !== -1 ? stats[0] / 100 : null;\n  const salesRank = stats[3] !== null && stats[3] !== -1 ? stats[3] : null;\n  \n  // Estimate monthly sales from BSR\n  let salesEstimate = null;\n  if (salesRank !== null && salesRank > 0) {\n    salesEstimate = Math.round(300000 / Math.pow(salesRank, 0.75));\n  }\n  \n  keepaProducts[p.asin] = {\n    asin: p.asin,\n    title: p.title,\n    brand: p.brand,\n    price: currentPrice,\n    bsr: salesRank,\n    salesEstimate,\n    rating: p.stats?.avg?.[7] ? p.stats.avg[7] / 10 : null,\n    reviewCount: p.stats?.current?.[7] || null,\n    listedSince: p.listedSince,\n    raw: p\n  };\n});\n\n// Get target product data\nconst targetProduct = keepaProducts[config.asin] || { asin: config.asin };\n\n// Merge Keepa data and calculate final scores\nconst enriched = competitors.map((c, idx) => {\n  const keepa = keepaProducts[c.asin] || {};\n  \n  // Calculate BSR score (lower is better)\n  const bsrScore = keepa.bsr && keepa.bsr > 0\n    ? Math.max(0, 1 - (Math.log(keepa.bsr) / Math.log(config.BSR_DIVISOR * 1000)))\n    : 0;\n  \n  // Calculate price similarity score\n  let priceScore = 0;\n  if (targetProduct.price && keepa.price) {\n    const priceDiff = Math.abs(targetProduct.price - keepa.price);\n    const avgPrice = (targetProduct.price + keepa.price) / 2;\n    priceScore = Math.max(0, 1 - (priceDiff / avgPrice));\n  }\n  \n  // Final score including Keepa factors\n  const finalScore = \n    c.scores.partial +\n    (priceScore * config.WEIGHT_PRICE) +\n    (bsrScore * config.WEIGHT_BSR);\n  \n  return {\n    rank: idx + 1,\n    asin: c.asin,\n    title: keepa.title || c.title,\n    brand: keepa.brand || '',\n    finalScore: Math.round(finalScore * 1000) / 1000,\n    scores: {\n      intersections: c.scores.intersections,\n      position: c.scores.position,\n      volume: c.scores.volume,\n      price: priceScore,\n      bsr: bsrScore\n    },\n    pricing: {\n      currentPrice: keepa.price || c.price\n    },\n    performance: {\n      rating: keepa.rating || c.rating,\n      reviewCount: keepa.reviewCount || c.reviewCount,\n      bsr: keepa.bsr,\n      salesEstimate: keepa.salesEstimate\n    },\n    keywords: {\n      intersections: c.intersections,\n      rankedKeywordCount: c.rankedKeywords\n    }\n  };\n});\n\n// Re-sort by final score\nenriched.sort((a, b) => b.finalScore - a.finalScore);\n\n// Update ranks\nenriched.forEach((c, idx) => c.rank = idx + 1);\n\nreturn [{ \n  json: { \n    targetProduct,\n    competitors: enriched,\n    config,\n    stats\n  } \n}];"
+      }
+    },
+    {
+      "id": "build-final-response",
+      "name": "Build Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, -360],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nconst { targetProduct, competitors, config, stats } = data;\n\nconst executionTime = ((Date.now() - config.startTime) / 1000).toFixed(2);\n\nconst response = {\n  success: true,\n  meta: {\n    targetAsin: config.asin,\n    returnedCount: competitors.length,\n    executionTimeSeconds: parseFloat(executionTime)\n  },\n  targetProduct: {\n    asin: targetProduct.asin,\n    title: targetProduct.title,\n    brand: targetProduct.brand,\n    price: targetProduct.price,\n    bsr: targetProduct.bsr,\n    salesEstimate: targetProduct.salesEstimate\n  },\n  competitors: competitors.map(c => ({\n    rank: c.rank,\n    asin: c.asin,\n    title: c.title,\n    brand: c.brand,\n    finalScore: c.finalScore,\n    scores: c.scores,\n    pricing: c.pricing,\n    performance: c.performance,\n    keywords: c.keywords\n  })),\n  stats: {\n    totalDiscovered: stats.totalFound,\n    afterMinReviewsFilter: stats.afterFilter,\n    selected: stats.selected\n  }\n};\n\nreturn [{ json: response }];"
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond - Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2640, -360],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {"responseCode": 200}
+      }
+    },
+    {
+      "id": "empty-after-filter",
+      "name": "Empty After Filter",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1760, -120],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, meta: { targetAsin: $('Set Constants').item.json.asin, returnedCount: 0, executionTimeSeconds: ((Date.now() - $('Set Constants').item.json.startTime) / 1000).toFixed(2) }, competitors: [], message: 'No competitors met the minimum review threshold' } }}",
+        "options": {"responseCode": 200}
+      }
+    },
+    {
+      "id": "error-handler",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {}
+    },
+    {
+      "id": "respond-error",
+      "name": "Respond - Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [220, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: $json.execution?.error?.message || 'Unknown error occurred', node: $json.execution?.error?.node?.name || 'Unknown' } }}",
+        "options": {"responseCode": 500}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Competitor Analysis": {"main": [[{"node": "Validate Input", "type": "main", "index": 0}]]},
+    "Validate Input": {"main": [[{"node": "Set Constants", "type": "main", "index": 0}], [{"node": "Stop - Missing Parameters", "type": "main", "index": 0}]]},
+    "Set Constants": {"main": [[{"node": "DataForSEO - Product Competitors", "type": "main", "index": 0}]]},
+    "DataForSEO - Product Competitors": {"main": [[{"node": "Check Competitors Response", "type": "main", "index": 0}]]},
+    "Check Competitors Response": {"main": [[{"node": "Filter - Min Reviews", "type": "main", "index": 0}], [{"node": "No Competitors Found", "type": "main", "index": 0}]]},
+    "Filter - Min Reviews": {"main": [[{"node": "Calculate Initial Scores", "type": "main", "index": 0}]]},
+    "Calculate Initial Scores": {"main": [[{"node": "Has Competitors?", "type": "main", "index": 0}]]},
+    "Has Competitors?": {"main": [[{"node": "Prepare Keepa Request", "type": "main", "index": 0}], [{"node": "Empty After Filter", "type": "main", "index": 0}]]},
+    "Prepare Keepa Request": {"main": [[{"node": "Keepa - Batch Products", "type": "main", "index": 0}]]},
+    "Keepa - Batch Products": {"main": [[{"node": "Merge Keepa & Final Score", "type": "main", "index": 0}]]},
+    "Merge Keepa & Final Score": {"main": [[{"node": "Build Final Response", "type": "main", "index": 0}]]},
+    "Build Final Response": {"main": [[{"node": "Respond - Success", "type": "main", "index": 0}]]},
+    "Error Handler": {"main": [[{"node": "Respond - Error", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

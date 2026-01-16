@@ -7,6 +7,7 @@ Amazon product research automation workflows for n8n.
 | Workflow | Description | Webhook Path |
 |----------|-------------|--------------|
 | **Amazon Research - Complete + Supabase** | Full research pipeline with AI analysis and Supabase storage | `/research-supabase` |
+| **Amazon Research - Competitor Analysis** | Deep competitor discovery with keyword overlap scoring | `/competitor-analysis` |
 | **Amazon Research - FBA Calculator** | Calculate FBA fees and margins | `/fba-calculator` |
 | **Amazon Review Scraper - Proxy** | Review scraping with proxy rotation | `/proxy-review-scrape` |
 | **Amazon Review Scraper - Parallel** | Parallel batch review scraping | `/review-scraper` |
@@ -25,6 +26,13 @@ Amazon product research automation workflows for n8n.
 - Aggregate metrics: SUM, MEDIAN, MAX for sales/revenue/reviews
 - Best variation identification
 - Price range and listing age analysis
+
+### Competitor Analysis
+- DataForSEO Product Competitors API for discovery
+- 5-factor scoring algorithm (keyword overlap, SERP position, search volume, price similarity, BSR)
+- Keepa batch enrichment for sales/BSR data
+- Configurable minimum review threshold (default: 30)
+- Returns top N competitors with detailed metrics
 
 ### SERP Rankings (Optional)
 - DataForSEO Amazon SERP API integration
@@ -130,6 +138,19 @@ curl -X POST https://your-n8n.com/webhook/research-supabase \
 | `runQAAnalysis` | boolean | false | Scrape Amazon Q&A data |
 | `runAdAnalysis` | boolean | false | Search competitor ad libraries |
 
+### Analyze Competitors
+
+```bash
+curl -X POST https://your-n8n.com/webhook/competitor-analysis \
+  -H "Content-Type: application/json" \
+  -d '{
+    "asin": "B09V3KXJPB",
+    "competitorCount": 5,
+    "keepaKey": "...",
+    "dataforseoAuth": "..."
+  }'
+```
+
 ### Calculate FBA Fees
 
 ```bash
@@ -148,6 +169,7 @@ curl -X POST https://your-n8n.com/webhook/fba-calculator \
 | Keepa (Product) | ~$0.10 | 5 tokens |
 | Keepa (Variations) | ~$0.20-0.40 | 10-20 tokens for batch |
 | DataForSEO (SERP) | ~$0.01 | Per ASIN |
+| DataForSEO (Competitors) | ~$0.01 | Product competitors API |
 | Oxylabs (Reviews) | ~$0.013 | 10 reviews |
 | Oxylabs (Q&A) | ~$0.0013 | Per ASIN |
 | OpenAI | ~$0.02 | GPT-4o |
@@ -156,12 +178,14 @@ curl -X POST https://your-n8n.com/webhook/fba-calculator \
 | Supabase | Free | Free tier |
 | **Total (Basic)** | **~$0.12** | Without variations |
 | **Total (Full)** | **~$0.35** | With all features |
+| **Competitor Analysis** | **~$0.13** | DataForSEO + Keepa batch |
 
 ## Database Schema
 
 See `/schemas/supabase-schema.sql` for the full PostgreSQL schema including:
 
 - `amazon_products` - 150+ fields for comprehensive product data
+- `amazon_competitors` - Competitor analysis with scoring
 - `amazon_keywords` - Keyword search volume and competition
 - `amazon_reviews` - Individual review data
 - `amazon_review_summaries` - AI-analyzed review insights
